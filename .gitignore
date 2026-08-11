@@ -1,0 +1,6 @@
+.DS_Store
+
+# Die unkomprimierten Stiftmodelle bleiben absichtlich AUSSERHALB dieses Repos.
+# Sie liegen im Prototyp-Ordner unter assets/models/ - das ist die Rueckfallebene.
+# Hier wuerden sie nur 3,8 MB zusaetzlich oeffentlich verfuegbar machen, ohne genutzt zu werden.
+assets/pens-original/

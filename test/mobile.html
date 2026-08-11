@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>edding Webflow-Module – Mobile-Test 390px</title>
+<!--
+  Diese Seite ist KEIN Design und kein Layout-Entwurf. Sie baut nur nach, was in Webflow
+  entsteht: leere Boxen mit den dokumentierten Attributen. Sie dient dazu, die Module ohne
+  Webflow zu pruefen (Konsole, Netzwerk, Messungen) - deshalb absichtlich nackt, mit
+  gestrichelten Rahmen, damit man die Boxgrenzen sieht.
+
+  Gedacht fuer einen 390px-Viewport.
+-->
+<style>
+  :root { --pad: 20px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #161616;
+    background: #fff;
+    overflow-x: clip;
+  }
+  html { overflow-x: clip; }
+
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 2px; }
+  .note { font-size: 12px; color: #666; margin: 0 0 10px; }
+  section.demo { padding: 28px var(--pad) 40px; border-top: 1px solid #e6e6e6; position: relative; }
+
+  /* Die Strich-Boxen. In Webflow machst du genau das: Breite, Seitenverhaeltnis,
+     position: relative. Der gestrichelte Rahmen ist nur zur Kontrolle. */
+  .stroke-box { width: 100%; position: relative; outline: 1px dashed #cfd8e3; }
+
+  /* Der Slider */
+  .pen-slider { position: relative; }
+  .pen-canvas { width: 100%; aspect-ratio: 990 / 770; position: relative; outline: 1px dashed #cfd8e3; }
+  .pen-controls { display: flex; gap: 10px; margin: 12px 0 16px; }
+  .pen-btn {
+    width: 44px; height: 44px; border-radius: 12px; background: #fff;
+    border: 1.5px solid #00368e; color: #00368e; font-size: 18px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .pen-btn.is-disabled { opacity: 0.35; }
+  .pen-slides { position: relative; }
+  .pen-slide__headline { font-size: 18px; font-weight: 700; margin: 0 0 6px; }
+  .pen-slide__body { margin: 0 0 6px; }
+  .pen-slide__temp { font-weight: 700; font-size: 22px; }
+
+  /* Kapitel 6: die Sektionshoehe setzt das Modul selbst. */
+  .brush-sticky { height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: 0 var(--pad); }
+  .brush-canvas { width: 100%; aspect-ratio: 1280 / 677; position: relative; outline: 1px dashed #cfd8e3; }
+  .brush-words { position: relative; height: 52px; overflow: hidden; margin-bottom: 10px; }
+  .brush-word { position: absolute; inset: 0; font-size: 34px; font-weight: 700; }
+
+  /* Abstandshalter, damit sich das Scroll-Scrubbing ueberhaupt beobachten laesst. */
+  .spacer { height: 60svh; }
+  .spacer--big { height: 100svh; }
+</style>
+</head>
+<body data-edding-asset-base="../assets/" data-edding-no-autostart>
+
+<section class="demo">
+  <h1>edding Webflow-Module</h1>
+  <p class="note">Mobile-Test, 390&nbsp;px. Gestrichelte Rahmen = Boxgrenzen, nur zur Kontrolle.</p>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Kapitel 1: Hitze ============================ -->
+<section class="demo">
+  <h2>Strich „hitze“</h2>
+  <p class="note">data-edding-stroke="hitze" · Box 1550/913.4</p>
+  <div class="stroke-box"
+       style="aspect-ratio: 1550 / 913.4;"
+       data-edding-stroke="hitze"
+       data-stroke-debug></div>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Kapitel 2: Wasser ============================ -->
+<section class="demo">
+  <h2>Strich „wasser“</h2>
+  <p class="note">data-edding-stroke="wasser" · Box 1338/587</p>
+  <div class="stroke-box"
+       style="aspect-ratio: 1338 / 587;"
+       data-edding-stroke="wasser"
+       data-stroke-debug></div>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Kapitel 3: Permanent (Trim) ============================ -->
+<section class="demo">
+  <h2>Strich „permanent“ (Trim, Reststück bleibt)</h2>
+  <p class="note">data-edding-stroke="permanent" · Box 3715.7/1400</p>
+  <div class="stroke-box"
+       style="aspect-ratio: 3715.7 / 1400;"
+       data-edding-stroke="permanent"
+       data-stroke-debug></div>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Kapitel 4: Non-Permanent (Trim) ============================ -->
+<section class="demo">
+  <h2>Strich „nonpermanent“ (Trim, radiert komplett weg)</h2>
+  <p class="note">data-edding-stroke="nonpermanent" · Box 2400/300</p>
+  <div class="stroke-box"
+       style="aspect-ratio: 2400 / 300;"
+       data-edding-stroke="nonpermanent"
+       data-stroke-debug></div>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Kapitel 5: Dirty (Trim) ============================ -->
+<section class="demo">
+  <h2>Strich „dirty“ (Kritzelmuster, Trim)</h2>
+  <p class="note">data-edding-stroke="dirty" · Box 2160/588.9 · im Prototyp zusätzlich opacity 0.3</p>
+  <div class="stroke-box"
+       style="aspect-ratio: 2160 / 588.9; opacity: 0.3;"
+       data-edding-stroke="dirty"
+       data-stroke-debug></div>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Kapitel 7: Darum-Kreis ============================ -->
+<section class="demo">
+  <h2>Strich „darum“ (Marker-Kreis)</h2>
+  <p class="note">data-edding-stroke="darum" · Box 760/565.4</p>
+  <div class="stroke-box"
+       style="aspect-ratio: 760 / 565.4;"
+       data-edding-stroke="darum"
+       data-stroke-debug></div>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Slider 1: Hitze ============================ -->
+<section class="demo">
+  <h2>3D-Slider „hitze“</h2>
+  <p class="note">data-edding-pen-slider="hitze" · nur Pfeil-Buttons</p>
+  <div class="pen-slider" data-edding-pen-slider="hitze" data-pen-debug>
+    <div class="pen-canvas" data-pen-canvas></div>
+    <div class="pen-controls">
+      <button class="pen-btn" data-pen-prev aria-label="Vorheriger Stift">‹</button>
+      <button class="pen-btn" data-pen-next aria-label="Nächster Stift">›</button>
+    </div>
+    <div class="pen-slides">
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 2000 C permanent marker</p>
+        <p class="pen-slide__body">Widersteht Hitze bis 300 °C und ist zusätzlich UV-beständig.</p>
+        <p class="pen-slide__temp"><span data-pen-count-up="300">0</span>° C · Hitzebeständig</p>
+      </div>
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 8300 industry permanent marker</p>
+        <p class="pen-slide__body">Hitzebeständige Tinte für raue und glatte Oberflächen.</p>
+        <p class="pen-slide__temp"><span data-pen-count-up="400">0</span>° C · Hitzebeständig</p>
+      </div>
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 50 paint marker</p>
+        <p class="pen-slide__body">Hitzebeständige Farbe für den industriellen Einsatz.</p>
+        <p class="pen-slide__temp"><span data-pen-count-up="250">0</span>° C · Hitzebeständig</p>
+      </div>
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 750 paint marker</p>
+        <p class="pen-slide__body">Hitzebeständige, glänzend deckende Beschichtung.</p>
+        <p class="pen-slide__temp"><span data-pen-count-up="200">0</span>° C · Hitzebeständig</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="spacer"></div>
+
+<!-- ============================ Slider 2: Wasser ============================ -->
+<section class="demo">
+  <h2>3D-Slider „wasser“</h2>
+  <p class="note">data-edding-pen-slider="wasser" · untere Kamera, gespiegelte Reihenfolge ·
+     Ausschnitt korrigiert (ohne fov/shift läuft der vorderste Stift bei Position 3 und 4 unten
+     aus dem Bild, gemessen bis NDC −1,23)</p>
+  <div class="pen-slider" data-edding-pen-slider="wasser"
+       data-pen-fov="1.3" data-pen-shift-x="0.2" data-pen-shift-y="-0.12"
+       data-pen-debug>
+    <div class="pen-canvas" data-pen-canvas></div>
+    <div class="pen-controls">
+      <button class="pen-btn" data-pen-prev aria-label="Vorheriger Stift">‹</button>
+      <button class="pen-btn" data-pen-next aria-label="Nächster Stift">›</button>
+    </div>
+    <div class="pen-slides">
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 2000 C permanent marker</p>
+        <p class="pen-slide__body">Nach dem Antrocknen wasserfest und wischbeständig.</p>
+      </div>
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 8300 industry permanent marker</p>
+        <p class="pen-slide__body">Hält auch auf feuchten und öligen Oberflächen.</p>
+      </div>
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 50 paint marker</p>
+        <p class="pen-slide__body">Wasserfeste Lackfarbe, auch für den Außenbereich geeignet.</p>
+      </div>
+      <div data-pen-slide>
+        <p class="pen-slide__headline">edding 750 paint marker</p>
+        <p class="pen-slide__body">Wetterbeständige, wasserfeste Beschichtung.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="spacer--big"></div>
+
+<!-- ============================ Kapitel 6: Bild-Karussell ============================ -->
+<section data-edding-image-brush data-brush-debug>
+  <div class="brush-sticky" data-brush-sticky>
+    <div class="brush-words">
+      <div class="brush-word" data-brush-word>Staubig</div>
+      <div class="brush-word" data-brush-word>Ölig</div>
+      <div class="brush-word" data-brush-word>Rostig</div>
+      <div class="brush-word" data-brush-word>Nass</div>
+    </div>
+    <div class="brush-canvas" data-brush-canvas></div>
+    <!-- Bildquellen als data-src an leeren Divs, NICHT als <img src>. Gemessen: mit <img src>
+         holt Chrome die vier Fotos (~480 KB) schon beim Seitenaufruf, auch mit loading="lazy"
+         und obwohl der Abschnitt mehrere Bildschirme weiter unten liegt. So laedt sie
+         ausschliesslich das Modul, wenn die Sektion in Reichweite kommt. -->
+    <div data-brush-image data-src="../assets/karussell/staubig.jpg"></div>
+    <div data-brush-image data-src="../assets/karussell/oelig.jpg"></div>
+    <div data-brush-image data-src="../assets/karussell/rostig.jpg"></div>
+    <div data-brush-image data-src="../assets/karussell/nass.jpg"></div>
+  </div>
+</section>
+
+<section class="demo">
+  <h2>Ende</h2>
+  <p class="note">Alle Module durchlaufen.</p>
+</section>
+
+<script type="module">
+  // In Webflow steht hier das Slater-Snippet mit der CDN-URL. Lokal ist der Pfad relativ.
+  import { initEdding } from '../src/edding-webflow.js';
+  window.__eddingApi = initEdding({ assetBase: '../assets/' });
+</script>
+
+</body>
+</html>

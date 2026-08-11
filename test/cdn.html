@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>edding Webflow-Module – CDN-Test</title>
+<!--
+  Gegenprobe: laedt die Module und Assets AUSSCHLIESSLICH von jsDelivr, genau so wie es in
+  Webflow laeuft. Nur dieser Durchlauf beweist, dass CORS und die Pfade im echten Betrieb
+  stimmen - lokal ist alles gleiche Herkunft und der Fehler waere unsichtbar.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { overflow-x: clip; }
+  body { margin: 0; font: 15px/1.5 -apple-system, sans-serif; }
+  section { padding: 24px 20px 32px; border-top: 1px solid #e6e6e6; }
+  .box { width: 100%; position: relative; outline: 1px dashed #cfd8e3; }
+  .pen-canvas { width: 100%; aspect-ratio: 990/770; position: relative; outline: 1px dashed #cfd8e3; }
+  .btn { width: 44px; height: 44px; border: 1.5px solid #00368e; background: #fff; color: #00368e; border-radius: 12px; }
+  .btn.is-disabled { opacity: .35; }
+  .brush-sticky { height: 100svh; display: flex; align-items: center; padding: 0 20px; }
+  .brush-canvas { width: 100%; aspect-ratio: 1280/677; position: relative; outline: 1px dashed #cfd8e3; }
+  .spacer { height: 60svh; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+
+<section><h2>CDN-Test – alles von jsDelivr</h2></section>
+<div class="spacer"></div>
+
+<section>
+  <h2>Strich „hitze“</h2>
+  <div class="box" style="aspect-ratio:1550/913.4" data-edding-stroke="hitze" data-stroke-debug></div>
+</section>
+<div class="spacer"></div>
+
+<section>
+  <h2>Strich „dirty“ (zweite Textur)</h2>
+  <div class="box" style="aspect-ratio:2160/588.9; opacity:.3" data-edding-stroke="dirty" data-stroke-debug></div>
+</section>
+<div class="spacer"></div>
+
+<section>
+  <h2>3D-Slider „hitze“</h2>
+  <div data-edding-pen-slider="hitze" data-pen-debug>
+    <div class="pen-canvas" data-pen-canvas></div>
+    <p><button class="btn" data-pen-prev>‹</button> <button class="btn" data-pen-next>›</button></p>
+    <div>
+      <div data-pen-slide>edding 2000 C</div>
+      <div data-pen-slide>edding 8300</div>
+      <div data-pen-slide>edding 50</div>
+      <div data-pen-slide>edding 750</div>
+    </div>
+  </div>
+</section>
+<div class="spacer"></div>
+
+<section data-edding-image-brush data-brush-debug style="padding:0">
+  <div class="brush-sticky" data-brush-sticky>
+    <div class="brush-canvas" data-brush-canvas></div>
+  </div>
+</section>
+
+<section><h2>Ende</h2></section>
+
+<script type="module">
+  // Genau das Snippet, das in Slater steht.
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v1/';
+  const m = await import(BASE + 'src/edding-webflow.js');
+  m.initEdding({ assetBase: BASE + 'assets/' });
+</script>
+
+</body>
+</html>

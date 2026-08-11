@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>edding Strich – Regler</title>
+<!--
+  Live-Regler fuer einen Strich: Zoom, Versatz, Strichbreite, Boxform, Farbe, Körnung.
+  Unten der fertige Attribut-Block zum Kopieren in Webflow.
+
+  Gedacht wie die ?bgshapes=1-Panels im Prototyp: einstellen, ansehen, Werte uebernehmen.
+  Der Strich ist hier immer fertig gemalt (kein Scrubben), damit man das Ergebnis beurteilen kann.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { overflow-x: clip; }
+  body { margin: 0; font: 13px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; color: #161616; }
+
+  .stage { position: relative; background: #fff; }
+  #box { width: 100%; position: relative; outline: 1px dashed #cfd8e3; }
+
+  .panel { padding: 14px 16px 28px; background: #f6f7f9; border-top: 1px solid #e3e7ec; }
+  .panel h2 { font-size: 13px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: #6b7480; }
+  .r { display: grid; grid-template-columns: 104px 1fr 60px; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .r label { color: #46505c; }
+  .r input[type=range] { width: 100%; }
+  .r output { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 14px; }
+  .seg button { border: 1px solid #c8d0da; background: #fff; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  .seg button[aria-pressed=true] { background: #00368e; border-color: #00368e; color: #fff; }
+
+  pre { background: #12161c; color: #e7edf5; padding: 12px; border-radius: 10px; overflow-x: auto;
+        font: 12px/1.5 ui-monospace, Menlo, monospace; margin: 6px 0 10px; }
+  .actions { display: flex; gap: 8px; align-items: center; }
+  .actions button { border: 0; background: #00368e; color: #fff; border-radius: 8px; padding: 9px 14px; cursor: pointer; font-weight: 600; }
+  .msg { color: #1c7a3e; font-weight: 600; }
+  .info { color: #6b7480; margin: 8px 0 0; }
+</style>
+</head>
+<body data-edding-no-autostart>
+
+<div class="stage"><div id="box"></div></div>
+
+<div class="panel">
+  <h2>Zeichnung</h2>
+  <div class="seg" id="presets"></div>
+
+  <h2>Boxform</h2>
+  <div class="seg" id="ratios"></div>
+
+  <h2>Einstellungen</h2>
+  <div class="r"><label>Zoom</label><input type="range" id="scale" min="0.5" max="6" step="0.05" value="1"><output id="o-scale"></output></div>
+  <div class="r"><label>Breite ×</label><input type="range" id="sx" min="0.2" max="3" step="0.02" value="1"><output id="o-sx"></output></div>
+  <div class="r"><label>Höhe ×</label><input type="range" id="sy" min="0.2" max="3" step="0.02" value="1"><output id="o-sy"></output></div>
+  <div class="r"><label>Versatz X</label><input type="range" id="ox" min="-2" max="2" step="0.01" value="0"><output id="o-ox"></output></div>
+  <div class="r"><label>Versatz Y</label><input type="range" id="oy" min="-2" max="2" step="0.01" value="0"><output id="o-oy"></output></div>
+  <div class="r"><label>Strichbreite</label><input type="range" id="pw" min="0" max="12" step="0.05" value="0"><output id="o-pw"></output></div>
+  <div class="r"><label>Körnung</label><input type="range" id="ms" min="0" max="1" step="0.01" value="0.7"><output id="o-ms"></output></div>
+  <div class="r"><label>Kontrast</label><input type="range" id="mc" min="0.2" max="3" step="0.05" value="0.95"><output id="o-mc"></output></div>
+
+  <div class="seg">
+    <button type="button" id="bestpos">Beste Position suchen</button>
+    <button type="button" id="reset">Zurücksetzen</button>
+  </div>
+  <p class="info"><b>Zoom</b> vergrößert proportional, <b>Breite ×</b> und <b>Höhe ×</b> stauchen
+     oder strecken je Achse. Die Strichdicke wird beim Stauchen bewusst nicht mitgestaucht —
+     wie ein echter Marker, der eine flachere Kurve mit derselben Spitze zieht. Willst du sie
+     dünner, den Regler <b>Strichbreite</b> benutzen.<br>
+     „Strichbreite 0" heißt: automatisch (skaliert mit Boxgröße und Zoom mit).
+     „Beste Position suchen" verschiebt so, dass im Ausschnitt am meisten Farbe liegt.</p>
+
+  <h2>Für Webflow kopieren</h2>
+  <pre id="out"></pre>
+  <div class="actions">
+    <button type="button" id="copy">Attribute kopieren</button>
+    <span class="msg" id="msg"></span>
+  </div>
+  <p class="info" id="stats"></p>
+</div>
+
+<script type="module">
+  import { initStrokes } from '../src/edding-strokes.js';
+  import { STROKE_PRESETS } from '../src/presets.js';
+
+  const ASSET_BASE = '../assets/';
+  const RATIOS = {
+    '390/280': '390 / 280', '390/230': '390 / 230', '390/390': '390 / 390',
+    '390/160': '390 / 160', 'Design-Box': '1550 / 913.4',
+  };
+
+  const el = (id) => document.getElementById(id);
+  const box = el('box');
+  let preset = 'hitze';
+  let ratio = '390/280';
+  let stroke = null;
+
+  // Preset- und Boxform-Knöpfe
+  const segBtns = (host, werte, ist, setz) => {
+    host.innerHTML = '';
+    for (const w of werte) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = w;
+      b.setAttribute('aria-pressed', String(w === ist()));
+      b.onclick = () => { setz(w); segBtns(host, werte, ist, setz); rebuild(); };
+      host.appendChild(b);
+    }
+  };
+  segBtns(el('presets'), Object.keys(STROKE_PRESETS), () => preset, (v) => { preset = v; resetWerte(); });
+  segBtns(el('ratios'), Object.keys(RATIOS), () => ratio, (v) => { ratio = v; });
+
+  function resetWerte() {
+    el('scale').value = 1; el('ox').value = 0; el('oy').value = 0; el('pw').value = 0;
+    el('sx').value = 1; el('sy').value = 1;
+    el('ms').value = STROKE_PRESETS[preset].maskStrength ?? 0.7;
+    el('mc').value = STROKE_PRESETS[preset].maskContrast ?? 1;
+  }
+
+  // Baut den Strich mit den aktuellen Reglerwerten komplett neu auf. Bewusst neu statt
+  // nachjustiert: Zoom und Versatz sitzen in der Geometrie, die beim Aufbau berechnet wird.
+  function rebuild() {
+    box.innerHTML = '';
+    box.removeAttribute('data-edding-ready');
+    box.style.aspectRatio = RATIOS[ratio];
+
+    const pw = parseFloat(el('pw').value);
+    const attrs = {
+      'data-edding-stroke': preset,
+      'data-stroke-scale': el('scale').value,
+      'data-stroke-scale-x': el('sx').value,
+      'data-stroke-scale-y': el('sy').value,
+      'data-stroke-offset-x': el('ox').value,
+      'data-stroke-offset-y': el('oy').value,
+      'data-margin-x': '0',
+      'data-margin-y': '0',
+      'data-mask-strength': el('ms').value,
+      'data-mask-contrast': el('mc').value,
+      'data-pen-width': pw > 0 ? String(pw) : 'auto',
+      'data-stroke-once': '',
+      'data-stroke-duration': '0',
+    };
+    for (const [k, v] of Object.entries(attrs)) box.setAttribute(k, v);
+
+    stroke = initStrokes({ assetBase: ASSET_BASE })[0];
+    if (stroke) {
+      stroke.ensureChapter();
+      stroke.chapter.ready.then(() => { stroke.setProgress(1); zeigeWerte(); });
+    }
+    zeigeAusgabe(attrs);
+  }
+
+  function zeigeAusgabe(attrs) {
+    const zeig = Object.entries(attrs)
+      .filter(([k, v]) => !['data-stroke-once', 'data-stroke-duration'].includes(k))
+      // Werte, die auf dem Standard stehen, gar nicht ausgeben - haelt den Block kurz
+      .filter(([k, v]) => !(k === 'data-stroke-offset-x' && parseFloat(v) === 0))
+      .filter(([k, v]) => !(k === 'data-stroke-offset-y' && parseFloat(v) === 0))
+      .filter(([k, v]) => !(k === 'data-stroke-scale' && parseFloat(v) === 1))
+      .filter(([k, v]) => !(k === 'data-stroke-scale-x' && parseFloat(v) === 1))
+      .filter(([k, v]) => !(k === 'data-stroke-scale-y' && parseFloat(v) === 1))
+      .map(([k, v]) => `${k}="${v}"`);
+    el('out').textContent =
+      `<div style="position:relative; width:100%; aspect-ratio:${RATIOS[ratio]}"\n     `
+      + zeig.join('\n     ') + '></div>';
+  }
+
+  function zeigeWerte() {
+    for (const id of ['scale', 'sx', 'sy', 'ox', 'oy', 'ms', 'mc']) el('o-' + id).textContent = el(id).value;
+    const pw = parseFloat(el('pw').value);
+    el('o-pw').textContent = pw > 0 ? pw.toFixed(2) : 'auto';
+    if (!stroke || !stroke.chapter) return;
+    const c = box.querySelector('canvas');
+    if (!c) return;
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n++;
+    el('stats').textContent = `Box ${box.clientWidth}×${box.clientHeight} · `
+      + `wirksame Strichbreite ${(Math.round(stroke.penWidth * 100) / 100)} `
+      + `(Prototyp ${STROKE_PRESETS[preset].widthMultiplier}) · `
+      + `Farbanteil ${Math.round(n / (c.width * c.height) * 1000) / 10} %`;
+  }
+
+  // Regler: Zoom/Versatz/Breite brauchen einen Neuaufbau, Körnung auch (Maske).
+  for (const id of ['scale', 'sx', 'sy', 'ox', 'oy', 'pw', 'ms', 'mc']) {
+    el(id).addEventListener('input', () => { zeigeWerte(); });
+    el(id).addEventListener('change', rebuild);
+  }
+
+  // Sucht per Schiebefenster den Ausschnitt mit der meisten Farbe und setzt den Versatz danach.
+  el('bestpos').onclick = () => {
+    const zoom = parseFloat(el('scale').value);
+    if (zoom <= 1) { el('msg').textContent = 'Erst reinzoomen (Zoom > 1).'; return; }
+    // Referenz bei Zoom 1 / Versatz 0 rendern, um zu sehen, wo die Farbe liegt
+    const merk = { s: el('scale').value, ox: el('ox').value, oy: el('oy').value };
+    el('scale').value = 1; el('ox').value = 0; el('oy').value = 0;
+    rebuild();
+    setTimeout(() => {
+      const c = box.querySelector('canvas');
+      const W = c.width, H = c.height;
+      const d = c.getContext('2d').getImageData(0, 0, W, H).data;
+      const acc = new Float64Array((W + 1) * (H + 1));
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const a = d[(y * W + x) * 4 + 3] > 8 ? 1 : 0;
+        acc[(y+1)*(W+1)+(x+1)] = a + acc[y*(W+1)+(x+1)] + acc[(y+1)*(W+1)+x] - acc[y*(W+1)+x];
+      }
+      const sum = (x0,y0,w,h) => acc[(y0+h)*(W+1)+(x0+w)] - acc[y0*(W+1)+(x0+w)] - acc[(y0+h)*(W+1)+x0] + acc[y0*(W+1)+x0];
+      const fw = Math.max(4, Math.floor(W/zoom)), fh = Math.max(4, Math.floor(H/zoom));
+      const step = Math.max(2, Math.floor(Math.min(fw,fh)/28));
+      let best = -1, bx = 0, by = 0;
+      for (let y = 0; y + fh <= H; y += step) for (let x = 0; x + fw <= W; x += step) {
+        const v = sum(x,y,fw,fh); if (v > best) { best = v; bx = x; by = y; }
+      }
+      const dx = (bx + fw/2)/W - 0.5, dy = (by + fh/2)/H - 0.5;
+      el('scale').value = merk.s;
+      el('ox').value = (-zoom * dx).toFixed(2);
+      el('oy').value = (-zoom * dy).toFixed(2);
+      rebuild();
+      el('msg').textContent = 'Versatz gesetzt.';
+      setTimeout(() => el('msg').textContent = '', 2500);
+    }, 350);
+  };
+
+  el('reset').onclick = () => { resetWerte(); rebuild(); };
+  el('copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(el('out').textContent); el('msg').textContent = 'Kopiert.'; }
+    catch { el('msg').textContent = 'Kopieren blockiert – Text bitte markieren.'; }
+    setTimeout(() => el('msg').textContent = '', 2500);
+  };
+
+  resetWerte();
+  rebuild();
+  window.addEventListener('resize', () => setTimeout(zeigeWerte, 200));
+</script>
+
+</body>
+</html>

@@ -47,7 +47,14 @@ export class StrokeChapter {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     const marginX = w * (this.opts.marginX ?? 0.12);
     const marginY = h * (this.opts.marginY ?? 0.16);
-    return { x: marginX, y: marginY, w: w - marginX * 2, h: h - marginY * 2 };
+    // WEBFLOW-PORT: offsetX/offsetY verschieben die Zeichnung innerhalb der Box, als Anteil der
+    // Boxgroesse (0.25 = ein Viertel der Breite nach rechts). Gebraucht wird das beim Reinzoomen:
+    // fitSubpaths() zentriert auf die Mitte dieses Rechtecks, und bei einer Zeichnung wie der
+    // Wasser-Welle liegt in der Mitte gar keine Farbe - man wuerde in ein Loch zoomen. Der
+    // Versatz aendert nur die Mitte, nicht die Skalierung (die kommt aus w/h, beide unveraendert).
+    const offX = w * (this.opts.offsetX ?? 0);
+    const offY = h * (this.opts.offsetY ?? 0);
+    return { x: marginX + offX, y: marginY + offY, w: w - marginX * 2, h: h - marginY * 2 };
   }
 
   _layout() {
@@ -64,7 +71,11 @@ export class StrokeChapter {
     this.maskScratchCanvas.width = this.canvas.width;
     this.maskScratchCanvas.height = this.canvas.height;
 
-    let subpaths = Brush.fitSubpaths(this.rawSubpaths, this.rawBbox, this._safeRect(), this.opts.pathScale ?? 1);
+    // WEBFLOW-PORT: scaleX/scaleY (Stauchen) zusaetzlich zum gleichmaessigen pathScale (Zoom).
+    let subpaths = Brush.fitSubpaths(
+      this.rawSubpaths, this.rawBbox, this._safeRect(),
+      this.opts.pathScale ?? 1, this.opts.scaleX ?? 1, this.opts.scaleY ?? 1
+    );
     // reverse: kehrt die Zeichenrichtung um (Punktreihenfolge + Bogenlaenge "s" pro Subpath
     // gespiegelt), ohne die SVG-Datei selbst anfassen zu muessen.
     if (this.opts.reverse) {

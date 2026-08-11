@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v1/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v2/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,16 +27,20 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v1/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v2/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v1`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
-> eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst `@v1` gegen `@v2`.
+> **Zum `@v2`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
+>
+> **Was v2 gegenüber v1 kann:** Zoom und Versatz für die Striche
+> (`data-stroke-scale`, `data-stroke-offset-x/-y`), und die automatische Strichbreite wächst
+> beim Zoomen mit. Wenn du noch `@v1` eingebunden hast, tausche die Nummer.
 
 ---
 
@@ -73,6 +77,66 @@ wird immer proportional eingepasst und zentriert, es entsteht nur mehr oder weni
 
 `dirty` liegt im Prototyp zusätzlich auf **30 % Deckkraft** — das ist CSS, also deine Box
 (`opacity: 0.3`).
+
+### Größer / mehr reingezoomt
+
+Standardmäßig wird die ganze Zeichnung in die Box eingepasst — sie ist dann komplett zu sehen und
+entsprechend klein. Für den Look aus dem Mobile-Design (dicker Strich, angeschnitten) zoomst du
+rein:
+
+```html
+data-stroke-scale="2.2"           <!-- Zoomfaktor: 1 = eingepasst, 2 = doppelt so groß -->
+data-stroke-offset-x="-0.26"      <!-- Versatz, Anteil der Boxbreite -->
+data-stroke-offset-y="0.46"       <!-- Versatz, Anteil der Boxhöhe -->
+data-margin-x="0" data-margin-y="0"
+```
+
+Was über die Box hinausragt, wird abgeschnitten — genau das ist beim Zoomen gewollt. Die
+Strichdicke wächst automatisch mit (bei `data-pen-width="auto"`, dem Standard): reinzoomen heißt
+optisch, dass alles größer wird, die Strichdicke eingeschlossen.
+
+**Der Versatz ist der Punkt, der nicht offensichtlich ist.** Zoomen vergrößert um die *Mitte der
+Box*, und bei manchen Zeichnungen liegt dort gar keine Farbe. Bei `wasser` (einer breiten Welle)
+ist die Mitte leer — ohne Versatz zoomst du in ein Loch, und je näher du kommst, desto weniger
+ist zu sehen. Nachgemessen: Farbanteil sinkt von 13 % bei Zoom 1 auf 0 % bei Zoom 4. Mit Versatz
+steigt er auf über 40 %.
+
+**Dafür gibt es einen Regler:** öffne `test/regler.html` (lokaler Server nötig, siehe unten).
+Dort stellst du Zeichnung, Boxform, Zoom, Versatz, Strichdicke und Körnung live ein, „Beste
+Position suchen" setzt den Versatz automatisch auf den Ausschnitt mit der meisten Farbe, und
+unten steht der fertige Attribut-Block zum Kopieren. Das ist deutlich schneller als Werte im
+Designer zu raten.
+
+Gemessene Startwerte (Box volle Breite, `margin-x/y` auf 0). „Farbanteil" ist, wie viel der Box
+der Strich bei vollem Fortschritt bedeckt — grob ein Maß dafür, wie „satt" der Ausschnitt wirkt:
+
+| Zeichnung | Boxform | Zoom | Versatz X | Versatz Y | Farbanteil |
+|---|---|---|---|---|---|
+| `hitze` | `390/280` | 1.6 | −0.04 | 0.24 | 16 % |
+| `hitze` | `390/280` | 2.2 | −0.26 | 0.44 | 22 % |
+| `hitze` | `390/280` | 3.0 | −0.52 | 0.52 | 31 % |
+| `wasser` | `390/230` | 1.6 | −0.23 | −0.04 | 17 % |
+| `wasser` | `390/230` | 2.2 | −0.52 | −0.29 | 21 % |
+| `wasser` | `390/230` | 3.0 | −0.88 | −0.56 | 30 % |
+
+Die Versatzwerte hängen an der Boxform — änderst du das Seitenverhältnis, im Regler neu
+suchen lassen.
+
+### Stauchen und Strecken
+
+Zoom vergrößert proportional. Willst du die Zeichnung **flacher oder schmaler** machen, gibt es
+zwei getrennte Faktoren:
+
+```html
+data-stroke-scale-x="1.3"    <!-- Breite: 1 = unverändert, <1 schmaler, >1 breiter -->
+data-stroke-scale-y="0.5"    <!-- Höhe:  0.5 = auf die halbe Höhe zusammengedrückt -->
+```
+
+**Die Strichdicke wird dabei absichtlich nicht mitgestaucht.** Der Stift bleibt, wie er ist —
+genau wie ein echter Marker, der eine flachere Kurve mit derselben Spitze zieht. Ein Stauchen
+über eine CSS-Transform hätte den Strich und die Körnung mitverzerrt; hier wird die Zeichnung
+wirklich mit den neuen Proportionen gemalt. Willst du sie zusätzlich dünner, dann über
+`data-pen-width`.
 
 ### Wichtig zu `permanent` und `nonpermanent`
 
@@ -124,7 +188,11 @@ Bei aktivem *Bewegung reduzieren* im Betriebssystem wird der Strich immer sofort
 | `data-mask-contrast` | Kontrast der Körnung | 0.95 / 2.0 |
 | `data-texture` | `grain` \| `grain2048` \| `rough` | je Preset |
 | `data-margin-x` / `-y` | Innenrand als Anteil, 0–0.5 | je Preset |
-| `data-stroke-scale` | Zeichnung zusätzlich vergrößern | `1` |
+| `data-stroke-scale` | Zoom, proportional | `1` |
+| `data-stroke-scale-x` | Breite stauchen/strecken | `1` |
+| `data-stroke-scale-y` | Höhe stauchen/strecken | `1` |
+| `data-stroke-offset-x` | Versatz seitlich, Anteil der Boxbreite | `0` |
+| `data-stroke-offset-y` | Versatz hoch/runter, Anteil der Boxhöhe | `0` |
 | `data-stroke-reverse` | Zeichenrichtung umkehren | je Preset |
 | `data-trim-head` | wie weit der Kopf malt, Anteil | je Preset |
 | `data-trim-tail-start` | ab wann hinten radiert wird | je Preset |
@@ -372,8 +440,11 @@ WebGL-Schleifen dauerhaft; auf einem Telefon ist das der teuerste Posten überha
 
 ## 8. Zum Testen ohne Webflow
 
-Im Repo liegen zwei Seiten:
+Im Repo liegen drei Seiten:
 
+- **`test/regler.html`** — der Regler: Zeichnung, Boxform, Zoom, Stauchen, Versatz, Strichbreite
+  und Körnung live einstellen, unten den fertigen Attribut-Block kopieren. **Das ist die Seite,
+  mit der du arbeitest.**
 - **`test/mobile.html`** — alle Module mit den dokumentierten Attributen, lokale Dateien.
 - **`test/cdn.html`** — dasselbe, aber alles von jsDelivr. Das ist der Aufbau, der Webflow
   entspricht.

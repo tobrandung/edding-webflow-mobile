@@ -94,10 +94,14 @@ function fitScale(boxW, boxH, path, marginX, marginY) {
   return Math.min(safeW / path.w, safeH / path.h) * 0.88;
 }
 
-function autoWidthMultiplier(preset, boxW, boxH) {
+// pathScale (data-stroke-scale) geht MIT ein. Sonst waere "reinzoomen" halb falsch: die
+// Zeichnung wuerde groesser, die Strichdicke aber gleich bleiben - der Strich wirkt beim
+// Zoomen also immer duenner, statt mitzuwachsen. Reinzoomen heisst optisch, dass ALLES
+// groesser wird, Strichdicke eingeschlossen.
+function autoWidthMultiplier(preset, boxW, boxH, pathScale = 1) {
   const mx = preset.marginX ?? 0.12;
   const my = preset.marginY ?? 0.16;
-  const mine = fitScale(boxW, boxH, preset.path, mx, my);
+  const mine = fitScale(boxW, boxH, preset.path, mx, my) * pathScale;
   const ref = fitScale(preset.refBox.w, preset.refBox.h, preset.path, mx, my);
   if (!ref || !mine) return preset.widthMultiplier;
   return preset.widthMultiplier * (mine / ref);
@@ -136,10 +140,16 @@ function createStroke(el, cfg) {
   const marginX = num(el, 'data-margin-x', base.marginX ?? 0.12);
   const marginY = num(el, 'data-margin-y', base.marginY ?? 0.16);
 
-  // data-pen-width="auto" (Standard) skaliert mit der Boxgroesse, eine Zahl setzt sie fest.
+  // data-stroke-scale: Zoomfaktor. 1 = Zeichnung genau in die Box eingepasst, 2 = doppelt so
+  // gross (ragt dann ueber die Boxkanten hinaus und wird von der Canvas beschnitten - genau das
+  // ist beim Reinzoomen gewollt).
+  const pathScale = num(el, 'data-stroke-scale', 1);
+
+  // data-pen-width="auto" (Standard) skaliert mit der Boxgroesse UND mit dem Zoom,
+  // eine Zahl setzt sie fest.
   const widthRaw = (el.getAttribute('data-pen-width') || 'auto').trim();
   const widthMultiplier = widthRaw === 'auto'
-    ? autoWidthMultiplier({ ...base, marginX, marginY }, boxW, boxH)
+    ? autoWidthMultiplier({ ...base, marginX, marginY }, boxW, boxH, pathScale)
     : (parseFloat(widthRaw) || base.widthMultiplier);
 
   const textureKey = el.getAttribute('data-texture') || base.texture;
@@ -160,7 +170,17 @@ function createStroke(el, cfg) {
     maskContrast: num(el, 'data-mask-contrast', base.maskContrast),
     marginX,
     marginY,
-    pathScale: num(el, 'data-stroke-scale', 1),
+    // Versatz der Zeichnung in der Box, als Anteil der Boxgroesse. Beim Reinzoomen der Weg,
+    // die interessante Stelle in den Ausschnitt zu holen (siehe _safeRect in stroke-chapter.js).
+    offsetX: num(el, 'data-stroke-offset-x', 0),
+    offsetY: num(el, 'data-stroke-offset-y', 0),
+    // Stauchen/Strecken je Achse, unabhaengig vom gleichmaessigen Zoom (pathScale).
+    // 1 = unveraendert, 0.6 = auf 60 % zusammengedrueckt, 1.4 = auf 140 % gezogen.
+    // Die Strichdicke bleibt dabei absichtlich gleich: der Stift wird nicht mitgestaucht,
+    // genau wie ein echter Marker, der eine flachere Kurve mit derselben Spitze zieht.
+    scaleX: num(el, 'data-stroke-scale-x', 1),
+    scaleY: num(el, 'data-stroke-scale-y', 1),
+    pathScale,
     reverse: el.hasAttribute('data-stroke-reverse') ? flag(el, 'data-stroke-reverse') : !!base.reverse,
   };
 
@@ -242,7 +262,7 @@ function createStroke(el, cfg) {
     if (widthRaw !== 'auto') return false;
     const w = el.clientWidth, h = el.clientHeight;
     if (!w || !h) return false;
-    const next = autoWidthMultiplier({ ...base, marginX, marginY }, w, h);
+    const next = autoWidthMultiplier({ ...base, marginX, marginY }, w, h, pathScale);
     if (!Number.isFinite(next) || Math.abs(next - appliedWidth) < 0.001) return false;
     appliedWidth = next;
     opts.widthMultiplier = next;                        // fuer eine noch nicht gebaute Maschine

@@ -74,21 +74,59 @@ export function parseSVGText(text) {
   return { subpaths, bbox };
 }
 
-export function fitSubpaths(subpaths, bbox, safeRect, scaleMultiplier = 1) {
+// WEBFLOW-PORT: scaleX / scaleY zum Stauchen und Strecken.
+// Im Original ist die Skalierung immer gleichmaessig (ein scale fuer beide Achsen), die
+// Zeichnung behaelt also zwangslaeufig ihre Proportion. Mit scaleX/scaleY laesst sie sich in
+// Breite und Hoehe unabhaengig stauchen - beides 1 verhaelt sich exakt wie vorher.
+//
+// Zur Bogenlaenge s: sie steckt in zwei Rechnungen, die das Aussehen bestimmen -
+//   computeDerived()    nimmt ds fuer die Kruemmung (und die steuert die Strichbreite),
+//   buildTimeMapping()  nimmt ds fuer das Maltempo.
+//
+// Bei GLEICHMAESSIGER Skalierung bleibt deshalb alles beim Original: s wird einfach mitskaliert.
+// Das ist wichtig - s kommt aus getPointAtLength() und ist die ECHTE Bogenlaenge, waehrend die
+// Summe der Abstaende zwischen den (max. 501) Abtastpunkten die Kurven abschneidet. Nachgemessen
+// liegt dieser Unterschied bei den meisten Zeichnungen unter 0,01 %, bei 03.svg (dem dichten
+// Gekritzel von Kapitel 5) aber bei 4,5 % - dort wuerde ein Neuberechnen den Strich sichtbar
+// breiter und langsamer machen.
+//
+// Nur beim STAUCHEN (scaleX != scaleY) muss neu gerechnet werden, weil die Bogenlaenge dann
+// nicht mehr proportional ist. Der Faktor korr holt die Abtast-Ungenauigkeit dabei wieder
+// heraus, indem er auf die echte Laenge der unverzerrten Zeichnung normiert.
+export function fitSubpaths(subpaths, bbox, safeRect, scaleMultiplier = 1, scaleX = 1, scaleY = 1) {
   if (!bbox || bbox.w <= 0 || bbox.h <= 0) return subpaths;
-  const scale = Math.min(safeRect.w / bbox.w, safeRect.h / bbox.h) * 0.88 * scaleMultiplier;
+  const base = Math.min(safeRect.w / bbox.w, safeRect.h / bbox.h) * 0.88 * scaleMultiplier;
+  const sx = base * scaleX;
+  const sy = base * scaleY;
   const cx = safeRect.x + safeRect.w / 2;
   const cy = safeRect.y + safeRect.h / 2;
   const bcx = bbox.x + bbox.w / 2;
   const bcy = bbox.y + bbox.h / 2;
-  return subpaths.map(sp => ({
-    length: sp.length * scale,
-    points: sp.points.map(p => ({
-      x: (p.x - bcx) * scale + cx,
-      y: (p.y - bcy) * scale + cy,
-      s: p.s * scale,
-    })),
-  }));
+  const gestaucht = scaleX !== 1 || scaleY !== 1;
+
+  return subpaths.map(sp => {
+    const pts = sp.points.map(p => ({
+      x: (p.x - bcx) * sx + cx,
+      y: (p.y - bcy) * sy + cy,
+      s: gestaucht ? 0 : p.s * base,
+    }));
+    if (!gestaucht) return { length: sp.length * base, points: pts };
+
+    // Normierungsfaktor aus der UNVERZERRTEN Zeichnung: echte Laenge / Polygonzug-Laenge.
+    let rohPoly = 0;
+    for (let i = 1; i < sp.points.length; i++) {
+      rohPoly += Math.hypot(sp.points[i].x - sp.points[i - 1].x, sp.points[i].y - sp.points[i - 1].y);
+    }
+    const echt = sp.points[sp.points.length - 1].s;
+    const korr = rohPoly > 0 && echt > 0 ? echt / rohPoly : 1;
+
+    let acc = 0;
+    for (let i = 1; i < pts.length; i++) {
+      acc += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      pts[i].s = acc * korr;
+    }
+    return { length: acc * korr || sp.length * base, points: pts };
+  });
 }
 
 // ------------------------------- Geometrie -------------------------------

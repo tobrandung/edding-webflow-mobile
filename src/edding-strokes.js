@@ -21,24 +21,43 @@ const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 // Strichen waeren sechs eigene Listener sechsmal derselbe Layout-Lesevorgang pro Frame.
 // ---------------------------------------------------------------------------------------------
 const registry = [];
-let ticking = false;
+let rafId = 0;
+let letzteZeit = 0;
 let bound = false;
 
-function tick() {
-  ticking = false;
-  for (const item of registry) item.update();
+// Die Schleife laeuft NICHT dauerhaft. Sie wird von scroll/resize angestossen und haelt sich
+// selbst am Leben, solange noch ein Strich seinem Ziel nachlaeuft (Smoothing, siehe unten).
+function tick(now) {
+  rafId = 0;
+  // Zeitbasiert statt pro Frame: bei 120 Hz soll das Nachlaufen nicht doppelt so schnell sein
+  // wie bei 60 Hz. Der Deckel von 50 ms faengt den Sprung nach einem Tabwechsel ab, sonst
+  // springt der Strich beim Zurueckkommen in einem Schritt ans Ziel.
+  const dt = letzteZeit ? Math.min(0.05, (now - letzteZeit) / 1000) : 1 / 60;
+  letzteZeit = now;
+  let weiter = false;
+  for (const item of registry) if (item.update(dt)) weiter = true;
+  if (weiter) requestTick();
+  else letzteZeit = 0;
 }
 function requestTick() {
-  if (ticking) return;
-  ticking = true;
-  requestAnimationFrame(tick);
+  if (rafId) return;
+  rafId = requestAnimationFrame(tick);
 }
 
-// Resize wird entprellt: _layout() in StrokeChapter baut die Textur-Maske ueber JEDEN
-// Geraetepixel der Canvas neu auf (getImageData + Schleife). Auf Mobile feuert resize beim
-// Ein-/Ausblenden der Adressleiste - ungebremst waere das ein sichtbarer Ruckler.
+// Resize wird entprellt: _layout() in StrokeChapter baut die Stiftgeometrie und die Textur-Maske
+// ueber JEDEN Geraetepixel der Canvas neu auf - gemessen 65 ms fuer sechs Striche, auf einem
+// Telefon ein Mehrfaches. Zwei Bremsen davor:
+//  1. Entprellung (150 ms), damit ein Ziehen am Fenster nicht jeden Zwischenschritt neu baut.
+//  2. Die Breite muss sich geaendert haben. Auf Mobile feuert resize beim Ein-/Ausblenden der
+//     Adressleiste, also mitten im Scrollen - und weil die Boxen ueber aspect-ratio an der
+//     BREITE haengen, ist an der Canvas dann gar nichts anders. Genau das war das Flackern.
+//     (StrokeChapter._layout() vergleicht zusaetzlich selbst; hier wird schon der Anlauf gespart.)
 let resizeTimer = null;
-function onResize() {
+let letzteBreite = typeof window !== 'undefined' ? window.innerWidth : 0;
+function onResize(evt) {
+  const breiteGleich = window.innerWidth === letzteBreite;
+  letzteBreite = window.innerWidth;
+  if (breiteGleich && evt && evt.type === 'resize') { requestTick(); return; }
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     for (const item of registry) item.relayout();
@@ -210,6 +229,13 @@ function createStroke(el, cfg) {
     tailMax: num(el, 'data-trim-tail-max', base.trim ? base.trim.tailMax : 1),
   };
 
+  // WEBFLOW-PORT: Smoothing wie bei einem Webflow-/GSAP-Scrub. Ohne das haengt der Strich
+  // starr am Scrollrad: jede Radrastung ist ein Sprung, und weil das Rad grob rastet, sieht
+  // man Stufen. Mit Nachlauf zeichnet der Strich weiter, bis er den Scrollwert eingeholt hat.
+  // Der Wert ist eine ZEITKONSTANTE in Sekunden: nach etwa dieser Zeit sind rund zwei Drittel
+  // der Strecke aufgeholt. 0 schaltet ab (starr am Scrollwert wie vorher).
+  const smoothSek = num(el, 'data-stroke-smooth', 0.12);
+
   const { startVh, endVh } = parseScrub(el);
   // data-stroke-once: zeichnet beim Eintritt in den Viewport EINMAL durch, statt am Scrollen
   // zu haengen. Standard ist gescrubbt (Nutzer-Vorgabe).
@@ -224,13 +250,16 @@ function createStroke(el, cfg) {
       penWidthPreset: base.widthMultiplier,
       mode, trim: mode === 'trim' ? trim : undefined,
       scrub: startVh + ' → ' + endVh,
+      smooth: smoothSek > 0 ? smoothSek + ' s' : 'aus',
       textureUrl,
     });
   }
 
-  let last = -1;
-  let visible = false;
-  let done = false; // nur fuer once / reduced-motion
+  let last = -1;      // was zuletzt WIRKLICH gezeichnet wurde
+  let gezeigt = -1;   // der geglaettete Wert, der dem Scrollwert nachlaeuft (-1 = noch keiner)
+  let nah = false;    // in Reichweite: Textur laden, Geometrie bauen
+  let imBild = false; // wirklich auf dem Schirm: nur DIESE zeichnen pro Frame
+  let done = false;   // nur fuer once / reduced-motion
 
   function draw(p) {
     if (!chapter || !chapter.perSubpath.length) return; // noch nicht geladen
@@ -276,23 +305,46 @@ function createStroke(el, cfg) {
     get chapter() { return chapter; },
     get progress() { return last; },
     get penWidth() { return appliedWidth; },
-    update() {
-      // Ausserhalb des Bildes gar nicht rechnen. Ohne das wuerden alle sechs Striche bei
-      // jedem Scroll-Frame ihre Geometrie durchlaufen, auch die weit oberhalb liegenden.
-      if (!visible || done) return;
-      const p = progressNow();
-      // Wie im Original: erst ab 0.002 Unterschied neu zeichnen, 0 und 1 aber immer.
-      if (Math.abs(p - last) < 0.002 && p !== 0 && p !== 1) return;
-      last = p;
-      draw(p);
+    // Gibt zurueck, ob noch weiter animiert werden muss (dann laeuft die Schleife weiter).
+    update(dt = 1 / 60) {
+      // Nur zeichnen, was wirklich auf dem Schirm ist. Vorher galt hier die Reichweite mit
+      // einem Viewport Vorlauf - dadurch haben bis zu drei Striche gleichzeitig bei JEDEM
+      // Scroll-Frame gezeichnet, obwohl nur einer zu sehen war. Gemessen 7,2 ms fuer sechs
+      // Striche pro Frame; bei 16,7 ms Budget ist das der Unterschied zwischen ruhig und unruhig.
+      if (!imBild || done) return false;
+
+      const ziel = progressNow();
+
+      // Erster Frame nach dem Auftauchen: sofort auf den Scrollwert, nicht hineinanimieren -
+      // sonst malt sich der Strich beim Erscheinen von selbst, obwohl gar nicht gescrollt wird.
+      if (gezeigt < 0 || smoothSek <= 0) gezeigt = ziel;
+      else {
+        // Zeitbasierter Nachlauf. Die Form (1 - e^(-dt/tau)) ist framerate-unabhaengig: bei
+        // 120 Hz kommen doppelt so viele, dafuer halb so grosse Schritte heraus.
+        gezeigt += (ziel - gezeigt) * (1 - Math.exp(-dt / smoothSek));
+        // Sonst kriecht der Wert unendlich lange auf die letzten Zehntausendstel zu und die
+        // Schleife laeuft ewig weiter.
+        if (Math.abs(ziel - gezeigt) < 0.0015) gezeigt = ziel;
+      }
+
+      // Wie im Original: erst ab 0.002 Unterschied neu zeichnen, 0 und 1 aber immer - der
+      // Zusatz "gezeigt !== last" ist neu und wichtig. Ohne ihn hat ein FERTIGER Strich
+      // (gezeigt === 1) sich weiter bei jedem Frame komplett neu gezeichnet, solange er im
+      // Bild stand: gemessen 21 unnoetige Neuzeichnungen in 40 Frames, mitten im Scrollen.
+      if (gezeigt !== last && (Math.abs(gezeigt - last) >= 0.002 || gezeigt === 0 || gezeigt === 1)) {
+        last = gezeigt;
+        draw(gezeigt);
+      }
+      return gezeigt !== ziel;
     },
     relayout() {
       remeasureWidth();
       if (chapter) chapter.handleResize();
       last = -1;
     },
-    // Fuer Messungen von aussen (siehe test/mobile.html)
-    setProgress(p) { ensureChapter(); last = p; draw(p); },
+    // Fuer Messungen von aussen (siehe test/mobile.html) und fuer test/regler.html:
+    // setzt hart, ohne Nachlauf.
+    setProgress(p) { ensureChapter(); last = p; gezeigt = p; draw(p); },
     ensureChapter,
   };
 
@@ -311,18 +363,34 @@ function createStroke(el, cfg) {
     })(start);
   }
 
-  // Ein Viewport Vorlauf (rootMargin 100%): so ist die Textur geladen und die Geometrie gebaut,
-  // BEVOR der Strich ins Bild kommt - sonst waere der Anfang des Scrubbens leer.
-  const io = new IntersectionObserver((entries) => {
+  // Zwei Beobachter mit verschiedener Aufgabe - das ist der Kern der Entlastung:
+  //
+  // 1. VORLAUF (ein Viewport, rootMargin 100 %): baut Textur und Geometrie, BEVOR der Strich
+  //    ins Bild kommt. Sonst waere der Anfang des Scrubbens leer.
+  // 2. IM BILD (kleiner Rand, 20 %): entscheidet, wer ueberhaupt pro Frame ZEICHNET. Vorher
+  //    hing beides am Vorlauf, also zeichneten bis zu drei Striche gleichzeitig mit.
+  const ioNah = new IntersectionObserver((entries) => {
     for (const e of entries) {
-      visible = e.isIntersecting;
-      if (!visible) continue;
+      if (!e.isIntersecting) continue;
+      nah = true;
       const ch = ensureChapter();
-      if (reduced) { io.unobserve(el); ch.ready.then(() => playOnce(0)); return; }
-      if (once) { io.unobserve(el); ch.ready.then(() => playOnce(onceMs)); return; }
+      if (reduced) { ioNah.unobserve(el); ioBild.unobserve(el); ch.ready.then(() => playOnce(0)); return; }
+      if (once) { ioNah.unobserve(el); ioBild.unobserve(el); ch.ready.then(() => playOnce(onceMs)); return; }
       requestTick();
     }
   }, { rootMargin: '100% 0px 100% 0px' });
+
+  const ioBild = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      imBild = e.isIntersecting;
+      // Beim Verlassen den Nachlauf zuruecksetzen: kommt der Strich spaeter wieder ins Bild
+      // (oder springt man per Anker mitten hinein), soll er sofort auf dem richtigen Stand
+      // stehen und sich nicht erst sichtbar dorthin malen.
+      if (!imBild) { gezeigt = -1; continue; }
+      ensureChapter();
+      requestTick();
+    }
+  }, { rootMargin: '20% 0px 20% 0px' });
 
   // Reagiert auf JEDE Groessenaenderung der Box - auch auf den Sprung 0 -> echte Groesse, den
   // ein window.resize gar nicht meldet. Entprellt, weil _layout() die Textur-Maske ueber jeden
@@ -336,7 +404,8 @@ function createStroke(el, cfg) {
     roTimer = setTimeout(() => { item.relayout(); requestTick(); item.update(); }, 120);
   });
 
-  io.observe(el);
+  ioNah.observe(el);
+  ioBild.observe(el);
   ro.observe(el);
 
   registry.push(item);

@@ -57,12 +57,37 @@ export class StrokeChapter {
     return { x: marginX + offX, y: marginY + offY, w: w - marginX * 2, h: h - marginY * 2 };
   }
 
-  _layout() {
+  // WEBFLOW-PORT: force=true baut auch dann neu, wenn sich nichts geaendert hat (fuer den
+  // Regler, der Werte in opts schreibt, die hier nicht in der Signatur stehen).
+  _layout(force = false) {
     if (!this.rawSubpaths) return;
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     if (!w || !h) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    // WEBFLOW-PORT: Abbruch, wenn sich an der Grundlage der Zeichnung nichts geaendert hat.
+    // Diese Funktion baut die Stiftgeometrie neu UND die Textur-Maske ueber jeden Geraetepixel
+    // (getImageData + Schleife) - gemessen 65 ms fuer sechs Striche auf einem Mac, auf einem
+    // Telefon ein Mehrfaches davon. Und weil gleich unten canvas.width gesetzt wird, ist die
+    // Canvas dabei zwischenzeitlich LEER.
+    // Auf Mobile feuert window.resize beim Ein-/Ausblenden der Adressleiste, also mitten im
+    // Scrollen - genau daraus entsteht das sichtbare Flackern. Die Boxen haengen aber an
+    // aspect-ratio ueber die BREITE: aendert sich nur die Viewporthoehe, ist an der Canvas
+    // nichts anders. Dieser Vergleich faengt den Fall vollstaendig ab.
+    const sig = [
+      Math.floor(w * dpr), Math.floor(h * dpr),
+      this.opts.widthMultiplier, this.opts.pathScale ?? 1,
+      this.opts.scaleX ?? 1, this.opts.scaleY ?? 1,
+      this.opts.offsetX ?? 0, this.opts.offsetY ?? 0,
+      this.opts.marginX ?? 0.12, this.opts.marginY ?? 0.16,
+      this.opts.tipAngleDeg, this.opts.grungeAmt, this.opts.grainSizePx,
+      this.opts.brushId, this.opts.color, this.opts.reverse ? 1 : 0,
+      this.opts.maskStrength ?? 0.7, this.opts.maskContrast ?? 1,
+    ].join('|');
+    if (!force && this._layoutSig === sig && this.perSubpath.length) return;
+    this._layoutSig = sig;
+
     this.canvas.width = Math.floor(w * dpr);
     this.canvas.height = Math.floor(h * dpr);
     this.inkCanvas.width = this.canvas.width;
@@ -111,8 +136,8 @@ export class StrokeChapter {
     this.renderTrim(this._lastProgress, this._lastTail || 0);
   }
 
-  handleResize() {
-    this._layout();
+  handleResize(force = false) {
+    this._layout(force);
   }
 
   renderProgress(progress) {

@@ -236,7 +236,9 @@ function createSlider(host, cfg) {
   const ANIM = (host.getAttribute('data-pen-anim') || 'mask').toLowerCase();
   const OUT_MS = num(host, 'data-pen-anim-out', 260);
   const IN_MS = num(host, 'data-pen-anim-in', 420);
-  const STAGGER_MS = num(host, 'data-pen-anim-stagger', 60);
+  // Standard 0: alle Felder starten gleichzeitig (Nutzer-Vorgabe - die Staffelung wirkte wie eine
+  // Verzoegerung). Ein Wert > 0 setzt sie wieder ein.
+  const STAGGER_MS = num(host, 'data-pen-anim-stagger', 0);
   const FADE = flag(host, 'data-pen-anim-fade');
   // Richtung des Austritts: 'down' (Standard, wie besprochen) oder 'up' fuer eine durchlaufende
   // Rolle nach oben.
@@ -247,9 +249,23 @@ function createSlider(host, cfg) {
 
   const innere = new Map(); // Feld -> innerer span
 
+  // Nicht jedes Feld will maskiert werden (Nutzer-Vorgabe):
+  //  - Eine hochzaehlende Zahl hat schon ihre eigene Bewegung. Sie zusaetzlich hinter eine Maske
+  //    zu schieben heisst, dass man den Anfang des Zaehlens nicht sieht.
+  //  - Kurze Labels wirken beim Wandern eher unruhig als weich. Dafuer gibt es data-pen-no-anim
+  //    zum Abwaehlen am einzelnen Feld.
+  // Solche Felder bekommen keinen inneren Span und werden dadurch weiter unten automatisch
+  // sofort und ohne Verzoegerung geschrieben - der Zweig "kein span" existiert schon.
+  function willMaske(ziel) {
+    if (ziel.hasAttribute('data-pen-no-anim')) return false;
+    if (ziel.hasAttribute('data-pen-count-up')) return false;
+    return true;
+  }
+
   function baueMasken() {
     if (ANIM !== 'mask') return;
     for (const ziel of zielFelder) {
+      if (!willMaske(ziel)) continue;
       const span = document.createElement('span');
       span.className = 'edding-pen__inner';
       span.style.cssText = 'display:block; will-change:transform;';
@@ -330,10 +346,13 @@ function createSlider(host, cfg) {
     timers.forEach(clearTimeout);
     timers.length = 0;
 
-    zielFelder.forEach((ziel, k) => {
+    // Nur maskierte Felder werden gestaffelt gezaehlt - haetten die uebersprungenen einen Platz
+    // in der Reihe, entstuende eine Luecke im Rhythmus.
+    let stufe = 0;
+    zielFelder.forEach(ziel => {
       const span = innere.get(ziel);
       if (!span) { schreibeFeld(ziel, i); return; }
-      const verzug = k * STAGGER_MS;
+      const verzug = stufe++ * STAGGER_MS;
       const weg = RAUS_RUNTER ? '100%' : '-100%';
 
       timers.push(setTimeout(() => {

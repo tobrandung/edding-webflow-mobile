@@ -23,9 +23,7 @@
   .label { font-size: 13px; color: #555; }
   .btn-red { background: #fa0000; color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; }
 
-  /* Weicher Wechsel: das Modul setzt is-swapping fuer 250 ms am Slider-Div. */
-  [data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
-  .is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
+  /* KEINE eigene is-swapping-Regel: der weiche Wechsel kommt seit v6 aus dem Modul. */
 
   .canvas { width: 100%; aspect-ratio: 990/770; position: relative; outline: 1px dashed #cfd8e3;
             background: #fff; border-radius: 12px; }
@@ -59,7 +57,9 @@
       <div class="temp"><span
          data-pen-field="temp" data-pen-count-up
          data-pen-2="400" data-pen-3="250" data-pen-4="200">300</span>° C</div>
-      <div class="label" data-pen-field="label">Hitzebeständig</div>
+      <!-- data-pen-no-anim: dieses Feld wechselt hart, ohne Maske (Nutzer-Vorgabe). -->
+      <div class="label" data-pen-field="label" data-pen-no-anim
+           data-pen-2="Industrietauglich" data-pen-3="Lackmarker" data-pen-4="Lackmarker">Hitzebeständig</div>
     </div>
   </div>
 

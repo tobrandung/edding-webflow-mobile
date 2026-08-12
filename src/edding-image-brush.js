@@ -224,7 +224,14 @@ function createImageBrush(section, cfg) {
   }
 
   let resizeTimer = null;
-  function onResize() {
+  let letzteBreite = window.innerWidth;
+  function onResize(evt) {
+    // Wie bei den Strichen: ein reines resize ohne Breitenaenderung ist auf Mobile das
+    // Ein-/Ausblenden der Adressleiste beim Scrollen - daran gibt es nichts neu zu bauen.
+    // (DirtyCarousel._layout() vergleicht zusaetzlich selbst.)
+    const breiteGleich = window.innerWidth === letzteBreite;
+    letzteBreite = window.innerWidth;
+    if (breiteGleich && evt && evt.type === 'resize') return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       remeasureWidth();

@@ -70,12 +70,28 @@ export class DirtyCarousel {
     }));
   }
 
-  _layout() {
+  // WEBFLOW-PORT: force=true baut auch dann neu, wenn sich nichts geaendert hat.
+  _layout(force = false) {
     if (!this.rawSubpaths) return;
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     if (!w || !h) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    // WEBFLOW-PORT: dieselbe Bremse wie in StrokeChapter._layout() - siehe die Begruendung
+    // dort. Kurz: diese Funktion setzt gleich unten canvas.width (das LEERT die Canvas) und
+    // baut die Stiftgeometrie neu. Auf Mobile feuert window.resize beim Ein-/Ausblenden der
+    // Adressleiste, also mitten im Scrollen, obwohl sich an der Canvas nichts geaendert hat.
+    const sig = [
+      Math.floor(w * dpr), Math.floor(h * dpr),
+      this.opts.widthMultiplier, this.opts.tipAngleDeg, this.opts.grungeAmt,
+      // _vOffset und NICHT opts.vOffset: setVOffset() schreibt nur das Feld. Stuende hier der
+      // opts-Wert, wuerde eine Verschiebung als "nichts geaendert" gelten und nicht ankommen.
+      this.opts.grainSizePx, this.opts.brushId, this._vOffset,
+    ].join('|');
+    if (!force && this._layoutSig === sig && this.perSubpath.length) return;
+    this._layoutSig = sig;
+
     for (const c of [this.canvas, this.inkCanvas, this.photoCanvas]) {
       c.width = Math.floor(w * dpr);
       c.height = Math.floor(h * dpr);
@@ -103,7 +119,7 @@ export class DirtyCarousel {
     this._composite(this._lastHead, this._lastState);
   }
 
-  handleResize() { this._layout(); }
+  handleResize(force = false) { this._layout(force); }
 
   // Ink-Ebene bis headProgress (0..1) neu aufbauen (immer komplett, richtungsunabhaengig -
   // wie StrokeChapter.renderTrim, aber ohne Tail: der Strich bleibt als Maske stehen).

@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v2/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v3/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,20 +27,22 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v2/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v3/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v2`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v3`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
 >
-> **Was v2 gegenüber v1 kann:** Zoom und Versatz für die Striche
-> (`data-stroke-scale`, `data-stroke-offset-x/-y`), und die automatische Strichbreite wächst
-> beim Zoomen mit. Wenn du noch `@v1` eingebunden hast, tausche die Nummer.
+> **Änderungen:** v2 brachte Zoom, Stauchen und Versatz für die Striche
+> (`data-stroke-scale`, `data-stroke-scale-x/-y`, `data-stroke-offset-x/-y`).
+> v3 bringt den Feld-Modus für den 3D-Slider: die Karte einmal bauen, das Modul tauscht die
+> Texte (`data-pen-field`, `data-pen-data`). Wenn du noch eine ältere Nummer eingebunden hast,
+> tausche sie.
 
 ---
 
@@ -207,30 +209,88 @@ Bei aktivem *Bewegung reduzieren* im Betriebssystem wird der Strich immer sofort
 
 ### Markup
 
+**Die Karte baust du EINMAL.** Du markierst darin die Textstellen, und das Modul schreibt beim
+Umschalten nur die Texte um — genauso macht es der Desktop-Prototyp. Die vier Textsätze liegen
+in einem unsichtbaren Datenblock.
+
 ```html
 <div data-edding-pen-slider="hitze">
+
+  <!-- Deine gestylte Karte, einmal gebaut. Nur die Textstellen markieren: -->
+  <div class="karte">
+    <p data-pen-field="headline">edding 2000 C Permanentmarker</p>
+    <p data-pen-field="body">Die aufgetragene Farbe widersteht Hitze bis 300° Celsius.</p>
+    <span data-pen-field="temp" data-pen-count-up>300</span>° C
+    <p data-pen-field="label">Hitzebeständig</p>
+    <a href="#">Zum Produkt</a>
+  </div>
 
   <div data-pen-canvas style="aspect-ratio:990/770"></div>
 
   <button data-pen-prev aria-label="Vorheriger Stift">‹</button>
   <button data-pen-next aria-label="Nächster Stift">›</button>
 
-  <div>
+  <!-- Die vier Textsätze. Wird automatisch ausgeblendet. -->
+  <div data-pen-data>
     <div data-pen-slide>
-      <p>edding 2000 C permanent marker</p>
-      <p>Widersteht Hitze bis 300 °C und ist zusätzlich UV-beständig.</p>
-      <p><span data-pen-count-up="300">0</span>° C · Hitzebeständig</p>
+      <span data-pen-field="headline">edding 2000 C Permanentmarker</span>
+      <span data-pen-field="body">Die aufgetragene Farbe widersteht Hitze bis 300° Celsius. Sie ist auch UV-beständig.</span>
+      <span data-pen-field="temp">300</span>
+      <span data-pen-field="label">Hitzebeständig</span>
     </div>
-    <div data-pen-slide>… Stift 2 …</div>
-    <div data-pen-slide>… Stift 3 …</div>
-    <div data-pen-slide>… Stift 4 …</div>
+    <div data-pen-slide>
+      <span data-pen-field="headline">edding 8300 Industry Permanentmarker</span>
+      <span data-pen-field="body">Hitzebeständige Tinte für raue und glatte Oberflächen.</span>
+      <span data-pen-field="temp">400</span>
+      <span data-pen-field="label">Hitzebeständig</span>
+    </div>
+    <div data-pen-slide>
+      <span data-pen-field="headline">edding 50 Paint Marker</span>
+      <span data-pen-field="body">Hitzebeständige Farbe für den industriellen Einsatz.</span>
+      <span data-pen-field="temp">250</span>
+      <span data-pen-field="label">Hitzebeständig</span>
+    </div>
+    <div data-pen-slide>
+      <span data-pen-field="headline">edding 750 Paint Marker</span>
+      <span data-pen-field="body">Hitzebeständige, glänzend deckende Beschichtung.</span>
+      <span data-pen-field="temp">200</span>
+      <span data-pen-field="label">Hitzebeständig</span>
+    </div>
   </div>
 
 </div>
 ```
 
-Reihenfolge der vier `data-pen-slide`-Blöcke = Reihenfolge der Stifte
-(2000 C → 8300 → 50 → 750).
+So baust du das im Designer:
+
+1. **Die Karte** wie gewohnt bauen. An jedem Text-Element, das wechseln soll, unter
+   *Settings → Custom attributes* ein `data-pen-field` mit einem frei gewählten Namen setzen
+   (`headline`, `body`, `temp`, `label` — die Namen musst du nur im Datenblock gleich schreiben).
+2. **Der Datenblock**: ein Div mit `data-pen-data`, darin vier Divs mit `data-pen-slide`, in jedem
+   je ein Text-Element pro Feldname. Ungestylt, reiner Text — das Modul blendet den ganzen Block
+   aus. Reihenfolge = Stift-Reihenfolge (2000 C → 8300 → 50 → 750).
+3. **Weicher Wechsel** (optional): das Modul setzt für 250 ms die Klasse `is-swapping` am
+   äußeren Slider-Div. Im Designer eine Custom-CSS-Regel dafür:
+
+   ```css
+   [data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
+   .is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
+   ```
+
+   Ohne diese Regel wechselt der Text einfach hart — funktioniert auch.
+4. **Hochzählende Zahl**: am Ziel-Element zusätzlich `data-pen-count-up` (ohne Wert). Die Zahl
+   zählt dann in 450 ms zum neuen Wert hoch, statt zu springen.
+
+Zwei Dinge, die schiefgehen können:
+
+- **Die Attribute für Zoom (`data-pen-fov`, `data-pen-shift-y`) gehören an das äußere
+  `data-edding-pen-slider`-Div**, nicht an das Canvas-Div — dort werden sie nicht gelesen.
+- **Die Pfeil-Buttons nicht *in* das Canvas-Div legen.** Die Zeichenfläche wird darüber gelegt und
+  fängt die Klicks ab. Daneben ist richtig.
+
+**Alternative ohne Datenblock:** wenn du kein `data-pen-field` verwendest, fällt das Modul auf den
+einfachen Weg zurück — vier fertig gestylte `data-pen-slide`-Blöcke, von denen der aktive
+eingeblendet wird. Dann pflegst du das Kartenlayout allerdings viermal.
 
 Zwei Presets:
 
@@ -270,9 +330,12 @@ Ein-/Ausblenden machst du selbst im Designer.
 | `data-edding-pen-slider` | `hitze` \| `wasser` | — |
 | `data-pen-canvas` | am Kind, in das die 3D-Fläche kommt | — |
 | `data-pen-prev` / `data-pen-next` | an den Buttons | — |
-| `data-pen-slide` | an jedem der vier Textblöcke | — |
+| `data-pen-slide` | an jedem der vier Textblöcke bzw. Datensätze | — |
+| `data-pen-field` | an jeder Textstelle, die wechseln soll (Name frei) | — |
+| `data-pen-data` | am Container mit den vier Datensätzen | — |
+| `data-pen-swap-ms` | Dauer des Textwechsels in ms, 0 = hart | `250` |
 | `data-pen-dot` | optional, direkte Sprungpunkte | — |
-| `data-pen-count-up` | Zielzahl zum Hochzählen | — |
+| `data-pen-count-up` | am Ziel-Feld: Zahl hochzählen statt springen | — |
 | `data-pen-slides-mode` | `inline` \| `class` | `inline` |
 | `data-pen-fov` | Bildwinkel; >1 = mehr im Bild | `1` |
 | `data-pen-shift-x` / `-y` | Kamera seitlich / hoch verschieben | `0` |
@@ -440,11 +503,12 @@ WebGL-Schleifen dauerhaft; auf einem Telefon ist das der teuerste Posten überha
 
 ## 8. Zum Testen ohne Webflow
 
-Im Repo liegen drei Seiten:
+Im Repo liegen vier Seiten:
 
 - **`test/regler.html`** — der Regler: Zeichnung, Boxform, Zoom, Stauchen, Versatz, Strichbreite
   und Körnung live einstellen, unten den fertigen Attribut-Block kopieren. **Das ist die Seite,
   mit der du arbeitest.**
+- **`test/pen-felder.html`** — der 3D-Slider im Feld-Modus, als Vorlage zum Nachbauen.
 - **`test/mobile.html`** — alle Module mit den dokumentierten Attributen, lokale Dateien.
 - **`test/cdn.html`** — dasselbe, aber alles von jsDelivr. Das ist der Aufbau, der Webflow
   entspricht.

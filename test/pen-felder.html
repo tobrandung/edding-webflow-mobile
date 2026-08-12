@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D-Slider – Feld-Modus</title>
+<!--
+  Baut den Aufbau nach, den der Nutzer in Webflow hat: EINE gestylte Karte, die Pfeil-Buttons
+  INNERHALB des Canvas-Divs, und die vier Textsaetze als unsichtbarer Datenblock.
+  Prueft damit gleichzeitig drei Dinge:
+    1. data-pen-fov am Canvas-Div (nicht am aeusseren Div) wirkt
+    2. Buttons im Canvas-Div bleiben klickbar
+    3. Feld-Modus tauscht die Texte in der einen Karte
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { overflow-x: clip; }
+  body { margin: 0; font: 15px/1.5 -apple-system, sans-serif; padding: 20px; }
+
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.12);
+          padding: 20px; margin-bottom: 16px; display: flex; gap: 16px; }
+  .card__left { flex: 1; }
+  .headline { font-size: 20px; font-weight: 700; margin: 0 0 10px; }
+  .body { font-size: 14px; margin: 0 0 12px; }
+  .temp { font-size: 22px; font-weight: 700; }
+  .label { font-size: 13px; color: #555; }
+  .btn-red { background: #fa0000; color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; }
+
+  /* Der Weich-Wechsel: das Modul setzt is-swapping am Slider-Div fuer 250 ms. */
+  [data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
+  .is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
+
+  .canvas { width: 100%; aspect-ratio: 990/770; position: relative; outline: 1px dashed #cfd8e3; }
+  .btns { display: flex; gap: 10px; margin-top: 12px; }
+  .btns button { width: 44px; height: 44px; border-radius: 12px; background: #fff;
+                 border: 1.5px solid #00368e; color: #00368e; font-size: 18px; }
+  .btns button.is-disabled { opacity: .35; }
+</style>
+</head>
+<body data-edding-no-autostart>
+
+<div data-edding-pen-slider="hitze" data-pen-fov="0.7" data-pen-shift-y="-0.15" data-pen-debug>
+
+  <!-- Die Karte, EINMAL gebaut. Nur die Textstellen sind markiert. -->
+  <div class="card">
+    <div class="card__left">
+      <p class="headline" data-pen-field="headline">edding 2000 C Permanentmarker</p>
+      <p class="body" data-pen-field="body">Die aufgetragene Farbe widersteht Hitze bis 300° Celsius.</p>
+      <button class="btn-red">Zum Produkt</button>
+    </div>
+    <div>
+      <div class="temp"><span data-pen-field="temp" data-pen-count-up>300</span>° C</div>
+      <div class="label" data-pen-field="label">Hitzebeständig</div>
+    </div>
+  </div>
+
+  <!-- Canvas-Div. Kamerawerte gehoeren an das AEUSSERE data-edding-pen-slider-Div,
+       die Buttons NEBEN das Canvas-Div, nicht hinein. -->
+  <div class="canvas" data-pen-canvas></div>
+  <div class="btns">
+    <button data-pen-prev aria-label="Vorheriger Stift">‹</button>
+    <button data-pen-next aria-label="Nächster Stift">›</button>
+  </div>
+
+  <!-- Die vier Textsaetze, unsichtbar. Reihenfolge = Stift-Reihenfolge. -->
+  <div data-pen-data>
+    <div data-pen-slide>
+      <span data-pen-field="headline">edding 2000 C Permanentmarker</span>
+      <span data-pen-field="body">Die aufgetragene Farbe widersteht Hitze bis 300° Celsius. Sie ist auch UV-beständig.</span>
+      <span data-pen-field="temp">300</span>
+      <span data-pen-field="label">Hitzebeständig</span>
+    </div>
+    <div data-pen-slide>
+      <span data-pen-field="headline">edding 8300 Industry Permanentmarker</span>
+      <span data-pen-field="body">Hitzebeständige Tinte für raue und glatte Oberflächen.</span>
+      <span data-pen-field="temp">400</span>
+      <span data-pen-field="label">Hitzebeständig</span>
+    </div>
+    <div data-pen-slide>
+      <span data-pen-field="headline">edding 50 Paint Marker</span>
+      <span data-pen-field="body">Hitzebeständige Farbe für den industriellen Einsatz.</span>
+      <span data-pen-field="temp">250</span>
+      <span data-pen-field="label">Hitzebeständig</span>
+    </div>
+    <div data-pen-slide>
+      <span data-pen-field="headline">edding 750 Paint Marker</span>
+      <span data-pen-field="body">Hitzebeständige, glänzend deckende Beschichtung.</span>
+      <span data-pen-field="temp">200</span>
+      <span data-pen-field="label">Hitzebeständig</span>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initEdding } from '../src/edding-webflow.js';
+  window.__api = initEdding({ assetBase: '../assets/' });
+</script>
+
+</body>
+</html>

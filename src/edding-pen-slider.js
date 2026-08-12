@@ -55,6 +55,9 @@ const flag = (el, name) => {
 function countUpTo(el, target, duration = 450) {
   const from = Number(String(el.textContent).replace(/[^\d.-]/g, '')) || 0;
   if (from === target) { el.textContent = String(target); return; }
+  // Im Hintergrundtab feuert requestAnimationFrame nicht - die Zahl wuerde auf dem alten Wert
+  // stehenbleiben und beim Zurueckkommen falsch dastehen. Dann ohne Animation direkt setzen.
+  if (document.hidden) { el.textContent = String(target); return; }
   const start = performance.now();
   const token = (el.__eddingToken = (el.__eddingToken || 0) + 1);
   (function tick(now) {
@@ -77,17 +80,46 @@ function createSlider(host, cfg) {
   canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; display:block;';
   canvasBox.appendChild(canvas);
 
-  const slides = Array.from(host.querySelectorAll('[data-pen-slide]'));
   const prevBtns = Array.from(host.querySelectorAll('[data-pen-prev]'));
   const nextBtns = Array.from(host.querySelectorAll('[data-pen-next]'));
   const dots = Array.from(host.querySelectorAll('[data-pen-dot]'));
+
+  // ------------------------------------------------------------------------------------------
+  // Zwei Wege, die Texte zu fuellen:
+  //
+  //  A) FELD-MODUS (empfohlen): du baust die Karte EINMAL und markierst die Textstellen mit
+  //     data-pen-field="headline|body|temp|label". Die vier Textsaetze liegen unsichtbar in
+  //     einem Container mit data-pen-data, je Stift ein data-pen-slide mit denselben
+  //     Feldnamen. Das Modul schreibt beim Wechsel nur die Texte um - so wie das UI-Panel im
+  //     Desktop-Prototyp (bindPenPanel).
+  //
+  //  B) SLIDE-MODUS: vier fertige, gestylte Bloecke mit data-pen-slide, das Modul blendet den
+  //     aktiven ein. Einfacher zu verstehen, aber du pflegst das Layout viermal.
+  //
+  // Der Modus ergibt sich von selbst: gibt es data-pen-field ausserhalb der Datenbloecke,
+  // ist es A, sonst B.
+  // ------------------------------------------------------------------------------------------
+  const alleSlides = Array.from(host.querySelectorAll('[data-pen-slide]'));
+  const zielFelder = Array.from(host.querySelectorAll('[data-pen-field]'))
+    .filter(el => !el.closest('[data-pen-slide]'));
+  const feldModus = zielFelder.length > 0;
+
+  // Im Feld-Modus sind die data-pen-slide-Bloecke reine Datenquelle und werden ausgeblendet.
+  const slides = alleSlides;
+  if (feldModus) {
+    const datenHost = host.querySelector('[data-pen-data]');
+    if (datenHost) datenHost.style.display = 'none';
+    else slides.forEach(s => { s.style.display = 'none'; });
+  }
+
   // 'inline' (Standard): das Modul setzt Opacity/Sichtbarkeit selbst - funktioniert ohne jedes
   // Styling im Designer. 'class': es setzt nur die Klasse is-active, du stylst die Combo-Klasse.
   const slidesMode = host.getAttribute('data-pen-slides-mode') || 'inline';
   const debug = flag(host, 'data-pen-debug');
 
   // Slides uebereinanderlegen, damit der Wechsel die Layouthoehe nicht springen laesst.
-  if (slidesMode === 'inline' && slides.length) {
+  // Nur im Slide-Modus - im Feld-Modus sind sie unsichtbare Datenbloecke.
+  if (!feldModus && slidesMode === 'inline' && slides.length) {
     const wrap = slides[0].parentElement;
     if (wrap && getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
     slides.forEach((s, i) => {
@@ -102,22 +134,57 @@ function createSlider(host, cfg) {
   }
 
   let activeIndex = -1;
+
+  // Feld-Modus: Texte aus dem Datenblock des aktiven Stifts in die gestylte Karte schreiben.
+  // Der Wechsel laeuft ueber die Klasse is-swapping am Slider (wie .pen-panel.is-swapping im
+  // Prototyp): 250 ms ausblenden, Text tauschen, wieder einblenden. Ohne eigenes CSS passiert
+  // einfach nichts Sichtbares dabei - der Text wechselt dann hart.
+  const SWAP_MS = num(host, 'data-pen-swap-ms', 250);
+  let swapTimer = null;
+  function fuelleFelder(i) {
+    const quelle = slides[i];
+    if (!quelle) return;
+    const schreiben = () => {
+      for (const ziel of zielFelder) {
+        const name = ziel.getAttribute('data-pen-field');
+        const von = quelle.querySelector(`[data-pen-field="${name}"]`);
+        if (!von) continue;
+        const text = von.textContent.trim();
+        if (ziel.hasAttribute('data-pen-count-up')) {
+          const zahl = Number(text.replace(/[^\d.-]/g, ''));
+          if (Number.isFinite(zahl)) { countUpTo(ziel, zahl); continue; }
+        }
+        ziel.textContent = text;
+      }
+      host.classList.remove('is-swapping');
+    };
+    if (activeIndex < 0 || SWAP_MS <= 0) { schreiben(); return; }
+    host.classList.add('is-swapping');
+    clearTimeout(swapTimer);
+    swapTimer = setTimeout(schreiben, SWAP_MS);
+  }
+
   function showSlide(i) {
     if (i === activeIndex) return;
-    activeIndex = i;
-    slides.forEach((s, k) => {
-      const on = k === i;
-      s.classList.toggle('is-active', on);
-      if (slidesMode === 'inline') {
-        s.style.opacity = on ? '1' : '0';
-        s.style.pointerEvents = on ? '' : 'none';
-        s.style.visibility = on ? '' : 'hidden';
-      }
-      if (on) {
-        const counter = s.querySelector('[data-pen-count-up]');
-        if (counter) countUpTo(counter, num(counter, 'data-pen-count-up', 0));
-      }
-    });
+    if (feldModus) {
+      fuelleFelder(i);
+      activeIndex = i;
+    } else {
+      activeIndex = i;
+      slides.forEach((s, k) => {
+        const on = k === i;
+        s.classList.toggle('is-active', on);
+        if (slidesMode === 'inline') {
+          s.style.opacity = on ? '1' : '0';
+          s.style.pointerEvents = on ? '' : 'none';
+          s.style.visibility = on ? '' : 'hidden';
+        }
+        if (on) {
+          const counter = s.querySelector('[data-pen-count-up]');
+          if (counter) countUpTo(counter, num(counter, 'data-pen-count-up', 0));
+        }
+      });
+    }
     dots.forEach((d, k) => {
       d.classList.toggle('is-active', k === i);
       d.setAttribute('aria-current', k === i ? 'true' : 'false');

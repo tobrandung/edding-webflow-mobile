@@ -277,10 +277,26 @@ am Slider-Div, `0` schaltet sie ab.
 **Hochzählende Zahl:** `data-pen-count-up` (ohne Wert) am Ziel-Feld. Die Zahl zählt dann in
 450 ms zum neuen Wert hoch, statt zu springen.
 
-Zwei Dinge, die schiefgehen können:
+Drei Dinge, die schiefgehen können:
 
-- **Die Zoom-Attribute (`data-pen-fov`, `data-pen-shift-y`) gehören an das äußere
-  `data-edding-pen-slider`-Div**, nicht an das Canvas-Div — dort werden sie nicht gelesen.
+- **`data-edding-pen-slider` muss ALLES umschließen** — Karte, Canvas und Buttons. Der Code sucht
+  die Felder nur innerhalb dieses Elements. Liegt die Karte daneben statt darin, findet er kein
+  einziges Feld und der Text wechselt nie (nachgemessen: 0 gefundene Felder, Text bleibt bei
+  Stift 1 stehen). In einer typischen Webflow-Struktur ist die Karte ein *Geschwister* des
+  Slider-Blocks — dann gehört das Attribut auf das gemeinsame Elternteil, nicht auf den
+  Slider-Block:
+
+  ```
+  padding-bottom            ← data-edding-pen-slider hier hin
+  ├── karte                    (mit den data-pen-field-Attributen)
+  └── slider-block
+      └── data-pen-canvas
+  ```
+
+  Und dann am Slider-Block wieder entfernen — zwei Elemente mit dem Attribut wären zwei
+  Instanzen, die sich um dieselbe Zeichenfläche streiten.
+- **Die Zoom-Attribute (`data-pen-fov`, `data-pen-shift-y`) gehören an dasselbe Element** wie
+  `data-edding-pen-slider`, nicht an das Canvas-Div — dort werden sie nicht gelesen.
 - **Die Pfeil-Buttons nicht *in* das Canvas-Div legen.** Die Zeichenfläche wird darüber gelegt und
   fängt die Klicks ab. Daneben ist richtig.
 

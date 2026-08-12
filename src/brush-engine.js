@@ -207,7 +207,15 @@ export function buildStrokeGeometry(points, derived, brush, tipAngleDeg, grungeA
     const nAlpha = (grungeNoise(s, grain, 41) + 1) / 2;
     alphaJ[i] = Math.max(0.2, 1 - nAlpha * grungeAmt * GRUNGE_ALPHA_MAX_DIP);
   }
-  return { left, right, width, skip, alphaJ };
+
+  // WEBFLOW-PORT: ein Mittelwert ueber den GANZEN Pfad, einmal hier berechnet. Warum das
+  // gebraucht wird, steht bei fillRun() - kurz: die Deckkraft eines Zuges darf nicht davon
+  // abhaengen, wie weit der Strich gerade gemalt ist.
+  let alphaSumme = 0;
+  for (let i = 0; i < n; i++) alphaSumme += alphaJ[i];
+  const alphaMean = n > 0 ? alphaSumme / n : 1;
+
+  return { left, right, width, skip, alphaJ, alphaMean };
 }
 
 // ------------------------------- Kurvenabhaengiges Timing (Schwung) -------------------------------
@@ -238,7 +246,22 @@ export function buildTimeMapping(points, derived, dynamic) {
 
 function fillRun(inkCtx, geo, from, to) {
   if (to < from) return;
-  inkCtx.globalAlpha = geo.alphaJ[Math.floor((from + to) / 2)] * 0.97;
+  // WEBFLOW-PORT / FEHLERBEHEBUNG (Flackern beim Scrollen):
+  //
+  // Hier stand geo.alphaJ[Math.floor((from + to) / 2)] - die Deckkraft des Zuges wurde also aus
+  // seiner MITTE abgegriffen. Weil geo.skip nie gesetzt wird, ist der Zug immer genau EINER, von
+  // Anfang bis zum Kopf des Strichs. Seine Mitte wandert damit mit dem Kopf, und alphaJ ist ein
+  // Rauschen - die Deckkraft des GANZEN Strichs sprang beim Scrollen also zwischen den
+  // Rauschwerten hin und her. Nachgemessen an "hitze": mittlere Deckkraft 165 bis 196 von 255,
+  // auf und ab, und je schneller gescrollt wird, desto schneller der Wechsel. Genau das war das
+  // vom Nutzer gemeldete "wird hell und dunkel beim Scrollen".
+  //
+  // Jetzt der Mittelwert ueber den ganzen Pfad: unabhaengig davon, wo Kopf und Ende stehen, also
+  // stabil - und optisch der Durchschnitt dessen, was vorher hin und her sprang. Die Koernung
+  // selbst bleibt unberuehrt, die kommt aus der Textur-Maske, nicht aus diesem Wert.
+  // Der Rueckfall auf die alte Zeile gilt fuer Geometrien ohne alphaMean (aeltere Aufrufer).
+  const alpha = geo.alphaMean ?? geo.alphaJ[Math.floor((from + to) / 2)];
+  inkCtx.globalAlpha = alpha * 0.97;
   inkCtx.beginPath();
   inkCtx.moveTo(geo.left[from - 1].x, geo.left[from - 1].y);
   for (let i = from; i <= to; i++) inkCtx.lineTo(geo.left[i].x, geo.left[i].y);

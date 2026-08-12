@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v5/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v6/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,13 +27,13 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v5/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v6/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v5`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v6`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
@@ -42,6 +42,8 @@ Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 > (`data-stroke-scale`, `data-stroke-scale-x/-y`, `data-stroke-offset-x/-y`).
 > v3–v5 bringen den Feld-Modus für den 3D-Slider: die Karte einmal bauen, die vier Textfassungen
 > als `data-pen-2/3/4` direkt an der Textstelle, und die Karte darf außerhalb des Sliders liegen.
+> v6 macht den Textwechsel weich (Maske, kein CSS mehr nötig) — **wenn du die alte
+> `is-swapping`-Regel in Webflow hast, lösche sie**, siehe Abschnitt 3.
 > Wenn du noch eine ältere Nummer eingebunden hast, tausche sie.
 
 ---
@@ -263,16 +265,37 @@ Drei Dinge, die Arbeit sparen:
 - **Die Feldnamen sind frei.** `headline`/`body`/`temp`/`label` sind nur Beispiele; wichtig ist
   nur, dass jedes Feld einen eigenen Namen hat.
 
-**Weicher Wechsel** (optional): das Modul setzt für 250 ms die Klasse `is-swapping` am äußeren
-Slider-Div. Dazu eine Custom-CSS-Regel:
+**Weicher Wechsel — brauchst du seit `@v6` nicht mehr selbst zu bauen.** Das Modul maskiert jedes
+Feld: der alte Text fährt nach unten aus dem Sichtfenster, der neue kommt von unten wieder herein,
+versetzt um 60 ms pro Feld. **Kein CSS nötig.**
 
-```css
-[data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
-.is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
-```
+> **Wenn du die alte Regel schon in Webflow stehen hast, lösche sie:**
+> ```css
+> [data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
+> .is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
+> ```
+> Sie animiert gegen die Maske des Moduls — beides gleichzeitig wirkt zappelig. `is-swapping` wird
+> nur noch gesetzt, wenn du den Maskenwechsel mit `data-pen-anim="none"` abschaltest.
 
-Ohne diese Regel wechselt der Text hart — funktioniert auch. Dauer über `data-pen-swap-ms`
-am Slider-Div, `0` schaltet sie ab.
+Feinjustieren, alles am **Slider-Div**, alles optional:
+
+| Attribut | Was | Standard |
+|---|---|---|
+| `data-pen-anim` | `mask` (Maskenwechsel) oder `none` (hart bzw. eigenes CSS) | `mask` |
+| `data-pen-anim-out` | Dauer des Hinausfahrens in ms | `260` |
+| `data-pen-anim-in` | Dauer des Hereinkommens in ms | `420` |
+| `data-pen-anim-stagger` | Versatz zwischen den Feldern in ms, `0` = alle gleichzeitig | `60` |
+| `data-pen-anim-dir` | `down` = raus nach unten, `up` = raus nach oben | `down` |
+| `data-pen-anim-fade` | ohne Wert setzen: zusätzlich aus-/einblenden | aus |
+
+Zwei Dinge, die dabei nicht offensichtlich sind:
+
+- Das Modul legt in jedes Feld einen inneren `<span class="edding-pen__inner">` und maskiert das
+  Feld per `clip-path` (nicht per `overflow`) — dadurch bleiben deine im Designer gesetzten
+  Abstände unverändert. Nachgemessen: 0 px Versatz.
+- Ist ein Feld ein Inline-Element, hebt das Modul es auf `inline-block` — sonst greift die Maske
+  nicht. Wenn ein Feld dadurch plötzlich in einer eigenen Zeile sitzt, ist es in Webflow als
+  Inline-Text gesetzt; ein Block- oder Inline-Block-Element als Feld nehmen.
 
 **Hochzählende Zahl:** `data-pen-count-up` (ohne Wert) am Ziel-Feld. Die Zahl zählt dann in
 450 ms zum neuen Wert hoch, statt zu springen.
@@ -359,7 +382,12 @@ Ein-/Ausblenden machst du selbst im Designer.
 | `data-pen-field` | an jeder Textstelle, die wechseln soll (Name frei) | — |
 | `data-pen-2` … `-4` | am Feld: Text für Stift 2, 3, 4 | Feld bleibt |
 | `data-pen-data` | am Container mit den vier Datensätzen | — |
-| `data-pen-swap-ms` | Dauer des Textwechsels in ms, 0 = hart | `250` |
+| `data-pen-anim` | `mask` (weicher Maskenwechsel) \| `none` | `mask` |
+| `data-pen-anim-out` / `-in` | Dauer raus / rein in ms | `260` / `420` |
+| `data-pen-anim-stagger` | Versatz zwischen den Feldern in ms | `60` |
+| `data-pen-anim-dir` | `down` \| `up` | `down` |
+| `data-pen-anim-fade` | zusätzlich aus-/einblenden | aus |
+| `data-pen-swap-ms` | nur bei `data-pen-anim="none"`: Dauer der `is-swapping`-Klasse | `250` |
 | `data-pen-target` | CSS-Selektor: wo die Felder liegen, falls die Automatik daneben greift | automatisch |
 | `data-pen-dot` | optional, direkte Sprungpunkte | — |
 | `data-pen-count-up` | am Ziel-Feld: Zahl hochzählen statt springen | — |

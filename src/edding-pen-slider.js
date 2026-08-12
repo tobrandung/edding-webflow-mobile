@@ -213,29 +213,153 @@ function createSlider(host, cfg) {
     return null;
   }
 
-  // Der Wechsel laeuft ueber die Klasse is-swapping am Slider (wie .pen-panel.is-swapping im
-  // Prototyp): 250 ms ausblenden, Text tauschen, wieder einblenden. Ohne eigenes CSS passiert
-  // einfach nichts Sichtbares dabei - der Text wechselt dann hart.
+  // ------------------------------------------------------------------------------------------
+  // MASKEN-WECHSEL.
+  // Der Text faehrt hinter einer unsichtbaren Kante nach UNTEN aus dem Bild, dort wird der Text
+  // getauscht, dann faehrt er von unten wieder herauf. Weil beides dieselbe Bewegung in zwei
+  // Richtungen ist, genuegt EINE Transform - kein Klonen von Elementen, keine Animationslib.
+  //
+  // Aufbau: der Text bekommt einen inneren <span>, der bewegt wird; das Feld selbst wird die
+  // Maske. Zwei Feinheiten, die sonst auffallen wuerden:
+  //
+  //  - Maskiert wird per clip-path, NICHT per overflow:hidden. Beides wuerde Unterlaengen
+  //    abschneiden (g, j, p); mit clip-path: inset(-0.18em 0) laesst sich der Maskenbereich
+  //    aber nach oben und unten etwas ueber den Kasten hinaus erweitern - und zwar OHNE das
+  //    Layout anzufassen. Der erste Versuch dafuer war padding-block plus negatives
+  //    margin-block, und der war falsch: marginBlock ueberschreibt die im Designer gesetzten
+  //    Abstaende (nachgemessen 2,34 px Versatz beim Fliesstext).
+  //  - Die Felder starten zeitlich versetzt (Staffelung), sonst wirkt der Wechsel wie ein Block.
+  //
+  // Kein GSAP: die Bewegung ist eine einzige CSS-Transition auf translateY. Eine
+  // Animationsbibliothek waere hier ~70 KB fuer zwei Zeilen.
+  // ------------------------------------------------------------------------------------------
+  const ANIM = (host.getAttribute('data-pen-anim') || 'mask').toLowerCase();
+  const OUT_MS = num(host, 'data-pen-anim-out', 260);
+  const IN_MS = num(host, 'data-pen-anim-in', 420);
+  const STAGGER_MS = num(host, 'data-pen-anim-stagger', 60);
+  const FADE = flag(host, 'data-pen-anim-fade');
+  // Richtung des Austritts: 'down' (Standard, wie besprochen) oder 'up' fuer eine durchlaufende
+  // Rolle nach oben.
+  const RAUS_RUNTER = (host.getAttribute('data-pen-anim-dir') || 'down') !== 'up';
+
+  const EASE_OUT = 'cubic-bezier(0.55, 0, 0.55, 0.2)'; // zieht zum Ende hin an
+  const EASE_IN = 'cubic-bezier(0.16, 1, 0.3, 1)';     // kommt weich zum Stehen
+
+  const innere = new Map(); // Feld -> innerer span
+
+  function baueMasken() {
+    if (ANIM !== 'mask') return;
+    for (const ziel of zielFelder) {
+      const span = document.createElement('span');
+      span.className = 'edding-pen__inner';
+      span.style.cssText = 'display:block; will-change:transform;';
+      while (ziel.firstChild) span.appendChild(ziel.firstChild);
+      ziel.appendChild(span);
+      // Ein inline-Element hat keinen eigenen Kasten, an dem sich zuverlaessig maskieren
+      // laesst (z.B. die Zahl im Thermometer als <span>). Auf inline-block heben ist die
+      // kleinste Aenderung, die eine Maske ueberhaupt moeglich macht.
+      if (getComputedStyle(ziel).display === 'inline') ziel.style.display = 'inline-block';
+      // Die Maske. Der negative Wert oben/unten laesst Unterlaengen stehen, ohne das Layout
+      // anzufassen - siehe die Begruendung im Kopf dieses Abschnitts.
+      ziel.style.clipPath = 'inset(-0.18em 0px)';
+      innere.set(ziel, span);
+    }
+  }
+  baueMasken();
+
+  // Bei "Bewegung reduzieren" im Betriebssystem gar nicht animieren.
+  const wenigerBewegung = window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const timers = [];
+  function schreibeFeld(ziel, i) {
+    const name = ziel.getAttribute('data-pen-field');
+    const text = textFuer(ziel, name, i);
+    if (text === null) return false;
+    if (ziel.hasAttribute('data-pen-count-up')) {
+      const zahl = Number(text.replace(/[^\d.-]/g, ''));
+      if (Number.isFinite(zahl)) {
+        const traeger = innere.get(ziel) || ziel;
+        countUpTo(traeger, zahl);
+        return true;
+      }
+    }
+    const traeger = innere.get(ziel) || ziel;
+    traeger.textContent = text;
+    return true;
+  }
+
   const SWAP_MS = num(host, 'data-pen-swap-ms', 250);
   let swapTimer = null;
+
+  // Sicherheitsnetz: die Maskenbewegung laeuft ueber verschachtelte setTimeout. Wechselt der
+  // Nutzer mitten im Uebergang den Tab, drosselt der Browser die Timer auf etwa einen pro
+  // Sekunde (nachgemessen: 7 Timer in 12,6 s) - der Text bliebe hinter der Maske geparkt und die
+  // Karte waere leer. Deshalb: im Hintergrund gar nicht animieren, und beim Zurueckkommen alles
+  // hart auf die Endposition setzen.
+  function schnappAufEndposition() {
+    for (const span of innere.values()) {
+      span.style.transition = 'none';
+      span.style.transform = 'translateY(0)';
+      span.style.opacity = '1';
+    }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) schnappAufEndposition();
+  });
+
   function fuelleFelder(i) {
-    const schreiben = () => {
-      for (const ziel of zielFelder) {
-        const name = ziel.getAttribute('data-pen-field');
-        const text = textFuer(ziel, name, i);
-        if (text === null) continue;
-        if (ziel.hasAttribute('data-pen-count-up')) {
-          const zahl = Number(text.replace(/[^\d.-]/g, ''));
-          if (Number.isFinite(zahl)) { countUpTo(ziel, zahl); continue; }
-        }
-        ziel.textContent = text;
+    // Erster Aufruf, "Bewegung reduzieren" und Hintergrundtab: ohne Animation setzen.
+    if (activeIndex < 0 || wenigerBewegung || ANIM === 'none' || !innere.size || document.hidden) {
+      if (document.hidden) schnappAufEndposition();
+      timers.forEach(clearTimeout); timers.length = 0;
+      if (ANIM === 'none' && activeIndex >= 0 && SWAP_MS > 0) {
+        // Alter Weg: nur die Klasse setzen, das Aussehen macht dein CSS.
+        scope.classList.add('is-swapping');
+        clearTimeout(swapTimer);
+        swapTimer = setTimeout(() => {
+          zielFelder.forEach(z => schreibeFeld(z, i));
+          scope.classList.remove('is-swapping');
+        }, SWAP_MS);
+        return;
       }
-      scope.classList.remove('is-swapping');
-    };
-    if (activeIndex < 0 || SWAP_MS <= 0) { schreiben(); return; }
-    scope.classList.add('is-swapping');
-    clearTimeout(swapTimer);
-    swapTimer = setTimeout(schreiben, SWAP_MS);
+      zielFelder.forEach(z => schreibeFeld(z, i));
+      return;
+    }
+
+    timers.forEach(clearTimeout);
+    timers.length = 0;
+
+    zielFelder.forEach((ziel, k) => {
+      const span = innere.get(ziel);
+      if (!span) { schreibeFeld(ziel, i); return; }
+      const verzug = k * STAGGER_MS;
+      const weg = RAUS_RUNTER ? '100%' : '-100%';
+
+      timers.push(setTimeout(() => {
+        // 1. hinaus
+        span.style.transition = `transform ${OUT_MS}ms ${EASE_OUT}`
+          + (FADE ? `, opacity ${OUT_MS}ms linear` : '');
+        span.style.transform = `translateY(${weg})`;
+        if (FADE) span.style.opacity = '0';
+
+        timers.push(setTimeout(() => {
+          // 2. Text tauschen, waehrend er ausserhalb der Maske steht
+          if (!schreibeFeld(ziel, i)) {
+            // Kein Wert fuer dieses Feld: einfach wieder hereinfahren
+          }
+          // 3. herein - ohne Transition auf die Startseite setzen, dann animieren
+          span.style.transition = 'none';
+          span.style.transform = `translateY(${weg})`;
+          // Reflow erzwingen, sonst fasst der Browser Sprung und Animation zusammen
+          void span.offsetHeight;
+          span.style.transition = `transform ${IN_MS}ms ${EASE_IN}`
+            + (FADE ? `, opacity ${IN_MS}ms linear` : '');
+          span.style.transform = 'translateY(0)';
+          if (FADE) span.style.opacity = '1';
+        }, OUT_MS));
+      }, verzug));
+    });
   }
 
   function showSlide(i) {

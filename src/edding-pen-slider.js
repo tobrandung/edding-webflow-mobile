@@ -85,24 +85,32 @@ function createSlider(host, cfg) {
   const dots = Array.from(host.querySelectorAll('[data-pen-dot]'));
 
   // ------------------------------------------------------------------------------------------
-  // Zwei Wege, die Texte zu fuellen:
+  // FELD-MODUS: du baust die Karte EINMAL und markierst die Textstellen mit
+  // data-pen-field="<name>". Das Modul schreibt beim Umschalten nur die Texte um - so wie das
+  // UI-Panel im Desktop-Prototyp (bindPenPanel).
   //
-  //  A) FELD-MODUS (empfohlen): du baust die Karte EINMAL und markierst die Textstellen mit
-  //     data-pen-field="headline|body|temp|label". Die vier Textsaetze liegen unsichtbar in
-  //     einem Container mit data-pen-data, je Stift ein data-pen-slide mit denselben
-  //     Feldnamen. Das Modul schreibt beim Wechsel nur die Texte um - so wie das UI-Panel im
-  //     Desktop-Prototyp (bindPenPanel).
+  // Woher die vier Texte kommen, darf jedes Feld selbst entscheiden. Gesucht wird in dieser
+  // Reihenfolge, der erste Treffer gewinnt:
   //
-  //  B) SLIDE-MODUS: vier fertige, gestylte Bloecke mit data-pen-slide, das Modul blendet den
-  //     aktiven ein. Einfacher zu verstehen, aber du pflegst das Layout viermal.
+  //   1. data-pen-1 … data-pen-4 AM FELD SELBST  (am wenigsten Klickarbeit: keine zusaetzlichen
+  //      Elemente, kein Datenblock - die vier Fassungen haengen direkt an der Headline, am
+  //      Fliesstext usw.)
+  //   2. ein Kind mit demselben data-pen-field in einem data-pen-slide-Block
+  //   3. ein Attribut data-pen-<name> am data-pen-slide-Block
   //
-  // Der Modus ergibt sich von selbst: gibt es data-pen-field ausserhalb der Datenbloecke,
-  // ist es A, sonst B.
+  // Fuer Stift 1 gilt zusaetzlich: findet sich nichts, bleibt der Text stehen, der schon im
+  // Designer eingetippt ist. Man muss data-pen-1 also nur setzen, wenn es abweichen soll.
+  //
+  // Gibt es KEIN data-pen-field, faellt das Modul auf den alten Weg zurueck: vier fertig
+  // gestylte data-pen-slide-Bloecke, von denen der aktive eingeblendet wird.
   // ------------------------------------------------------------------------------------------
   const alleSlides = Array.from(host.querySelectorAll('[data-pen-slide]'));
   const zielFelder = Array.from(host.querySelectorAll('[data-pen-field]'))
     .filter(el => !el.closest('[data-pen-slide]'));
   const feldModus = zielFelder.length > 0;
+
+  // Startwerte sichern, damit Stift 1 auf den im Designer eingetippten Text zurueckfallen kann.
+  const startTexte = new Map(zielFelder.map(el => [el, el.textContent.trim()]));
 
   // Im Feld-Modus sind die data-pen-slide-Bloecke reine Datenquelle und werden ausgeblendet.
   const slides = alleSlides;
@@ -135,21 +143,40 @@ function createSlider(host, cfg) {
 
   let activeIndex = -1;
 
-  // Feld-Modus: Texte aus dem Datenblock des aktiven Stifts in die gestylte Karte schreiben.
+  // Feld-Modus: Text fuer Stift i und Feldname holen. Reihenfolge der Quellen siehe oben.
+  // Gibt null zurueck, wenn es fuer dieses Feld keinen Wert gibt - dann bleibt der Text stehen,
+  // statt leer zu werden (wichtig, wenn nur ein Teil der Felder ueber alle Stifte wechselt).
+  function textFuer(ziel, name, i) {
+    // 1. data-pen-1 … data-pen-4 am Feld selbst
+    const direkt = ziel.getAttribute('data-pen-' + (i + 1));
+    if (direkt !== null) return direkt.trim();
+
+    const quelle = slides[i];
+    if (quelle) {
+      // 2. Kind mit demselben Feldnamen im Datenblock
+      const von = quelle.querySelector(`[data-pen-field="${name}"]`);
+      if (von) return von.textContent.trim();
+      // 3. Attribut data-pen-<name> am Datenblock
+      const attr = quelle.getAttribute('data-pen-' + name);
+      if (attr !== null) return attr.trim();
+    }
+
+    // 4. Stift 1 ohne eigenen Wert: der im Designer eingetippte Text
+    if (i === 0 && startTexte.has(ziel)) return startTexte.get(ziel);
+    return null;
+  }
+
   // Der Wechsel laeuft ueber die Klasse is-swapping am Slider (wie .pen-panel.is-swapping im
   // Prototyp): 250 ms ausblenden, Text tauschen, wieder einblenden. Ohne eigenes CSS passiert
   // einfach nichts Sichtbares dabei - der Text wechselt dann hart.
   const SWAP_MS = num(host, 'data-pen-swap-ms', 250);
   let swapTimer = null;
   function fuelleFelder(i) {
-    const quelle = slides[i];
-    if (!quelle) return;
     const schreiben = () => {
       for (const ziel of zielFelder) {
         const name = ziel.getAttribute('data-pen-field');
-        const von = quelle.querySelector(`[data-pen-field="${name}"]`);
-        if (!von) continue;
-        const text = von.textContent.trim();
+        const text = textFuer(ziel, name, i);
+        if (text === null) continue;
         if (ziel.hasAttribute('data-pen-count-up')) {
           const zahl = Number(text.replace(/[^\d.-]/g, ''));
           if (Number.isFinite(zahl)) { countUpTo(ziel, zahl); continue; }

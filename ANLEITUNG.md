@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v3/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v4/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,22 +27,22 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v3/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v4/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v3`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v4`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
 >
 > **Änderungen:** v2 brachte Zoom, Stauchen und Versatz für die Striche
 > (`data-stroke-scale`, `data-stroke-scale-x/-y`, `data-stroke-offset-x/-y`).
-> v3 bringt den Feld-Modus für den 3D-Slider: die Karte einmal bauen, das Modul tauscht die
-> Texte (`data-pen-field`, `data-pen-data`). Wenn du noch eine ältere Nummer eingebunden hast,
-> tausche sie.
+> v3/v4 bringen den Feld-Modus für den 3D-Slider: die Karte einmal bauen, die vier Textfassungen
+> als `data-pen-2/3/4` direkt an der Textstelle. Wenn du noch eine ältere Nummer eingebunden
+> hast, tausche sie.
 
 ---
 
@@ -209,19 +209,31 @@ Bei aktivem *Bewegung reduzieren* im Betriebssystem wird der Strich immer sofort
 
 ### Markup
 
-**Die Karte baust du EINMAL.** Du markierst darin die Textstellen, und das Modul schreibt beim
-Umschalten nur die Texte um — genauso macht es der Desktop-Prototyp. Die vier Textsätze liegen
-in einem unsichtbaren Datenblock.
+**Die Karte baust du EINMAL, und du kopierst nichts.** Die vier Textfassungen hängen als
+Attribute direkt an dem Element, das sie betreffen. Kein Datenblock, keine zusätzlichen
+Elemente.
 
 ```html
 <div data-edding-pen-slider="hitze">
 
-  <!-- Deine gestylte Karte, einmal gebaut. Nur die Textstellen markieren: -->
+  <!-- Deine gestylte Karte. An jeder Textstelle, die wechseln soll:
+       data-pen-field + die Fassungen für Stift 2, 3, 4. -->
   <div class="karte">
-    <p data-pen-field="headline">edding 2000 C Permanentmarker</p>
-    <p data-pen-field="body">Die aufgetragene Farbe widersteht Hitze bis 300° Celsius.</p>
-    <span data-pen-field="temp" data-pen-count-up>300</span>° C
+    <p data-pen-field="headline"
+       data-pen-2="edding 8300 Industry Permanentmarker"
+       data-pen-3="edding 50 Paint Marker"
+       data-pen-4="edding 750 Paint Marker">edding 2000 C Permanentmarker</p>
+
+    <p data-pen-field="body"
+       data-pen-2="Hitzebeständige Tinte für raue und glatte Oberflächen."
+       data-pen-3="Hitzebeständige Farbe für den industriellen Einsatz."
+       data-pen-4="Hitzebeständige, glänzend deckende Beschichtung.">Die aufgetragene Farbe widersteht Hitze bis 300° Celsius. Sie ist auch UV-beständig.</p>
+
+    <span data-pen-field="temp" data-pen-count-up
+          data-pen-2="400" data-pen-3="250" data-pen-4="200">300</span>° C
+
     <p data-pen-field="label">Hitzebeständig</p>
+
     <a href="#">Zum Produkt</a>
   </div>
 
@@ -230,67 +242,57 @@ in einem unsichtbaren Datenblock.
   <button data-pen-prev aria-label="Vorheriger Stift">‹</button>
   <button data-pen-next aria-label="Nächster Stift">›</button>
 
-  <!-- Die vier Textsätze. Wird automatisch ausgeblendet. -->
-  <div data-pen-data>
-    <div data-pen-slide>
-      <span data-pen-field="headline">edding 2000 C Permanentmarker</span>
-      <span data-pen-field="body">Die aufgetragene Farbe widersteht Hitze bis 300° Celsius. Sie ist auch UV-beständig.</span>
-      <span data-pen-field="temp">300</span>
-      <span data-pen-field="label">Hitzebeständig</span>
-    </div>
-    <div data-pen-slide>
-      <span data-pen-field="headline">edding 8300 Industry Permanentmarker</span>
-      <span data-pen-field="body">Hitzebeständige Tinte für raue und glatte Oberflächen.</span>
-      <span data-pen-field="temp">400</span>
-      <span data-pen-field="label">Hitzebeständig</span>
-    </div>
-    <div data-pen-slide>
-      <span data-pen-field="headline">edding 50 Paint Marker</span>
-      <span data-pen-field="body">Hitzebeständige Farbe für den industriellen Einsatz.</span>
-      <span data-pen-field="temp">250</span>
-      <span data-pen-field="label">Hitzebeständig</span>
-    </div>
-    <div data-pen-slide>
-      <span data-pen-field="headline">edding 750 Paint Marker</span>
-      <span data-pen-field="body">Hitzebeständige, glänzend deckende Beschichtung.</span>
-      <span data-pen-field="temp">200</span>
-      <span data-pen-field="label">Hitzebeständig</span>
-    </div>
-  </div>
-
 </div>
 ```
 
-So baust du das im Designer:
+So gehst du im Designer vor — an deinen bestehenden Elementen, es entsteht nichts Neues:
 
-1. **Die Karte** wie gewohnt bauen. An jedem Text-Element, das wechseln soll, unter
-   *Settings → Custom attributes* ein `data-pen-field` mit einem frei gewählten Namen setzen
-   (`headline`, `body`, `temp`, `label` — die Namen musst du nur im Datenblock gleich schreiben).
-2. **Der Datenblock**: ein Div mit `data-pen-data`, darin vier Divs mit `data-pen-slide`, in jedem
-   je ein Text-Element pro Feldname. Ungestylt, reiner Text — das Modul blendet den ganzen Block
-   aus. Reihenfolge = Stift-Reihenfolge (2000 C → 8300 → 50 → 750).
-3. **Weicher Wechsel** (optional): das Modul setzt für 250 ms die Klasse `is-swapping` am
-   äußeren Slider-Div. Im Designer eine Custom-CSS-Regel dafür:
+| Dein Element | Attribute unter *Settings → Custom attributes* |
+|---|---|
+| Headline (`heading-style-h4`) | `data-pen-field` = `headline`, dazu `data-pen-2`, `data-pen-3`, `data-pen-4` |
+| Fließtext (`text-size-small`) | `data-pen-field` = `body`, dazu `data-pen-2/3/4` |
+| Zahl (`count-up`) | `data-pen-field` = `temp`, `data-pen-count-up` (ohne Wert), dazu `data-pen-2/3/4` |
+| Label (`text-size-tiny`) | `data-pen-field` = `label` — mehr nur, wenn der Text wechseln soll |
 
-   ```css
-   [data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
-   .is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
-   ```
+Drei Dinge, die Arbeit sparen:
 
-   Ohne diese Regel wechselt der Text einfach hart — funktioniert auch.
-4. **Hochzählende Zahl**: am Ziel-Element zusätzlich `data-pen-count-up` (ohne Wert). Die Zahl
-   zählt dann in 450 ms zum neuen Wert hoch, statt zu springen.
+- **`data-pen-1` brauchst du nicht.** Für Stift 1 bleibt der Text stehen, den du im Designer
+  eingetippt hast. Setze es nur, wenn es davon abweichen soll.
+- **Felder ohne `data-pen-*` bleiben unangetastet.** Das Label oben steht bei allen vier Stiften
+  gleich, also braucht es nichts weiter.
+- **Die Feldnamen sind frei.** `headline`/`body`/`temp`/`label` sind nur Beispiele; wichtig ist
+  nur, dass jedes Feld einen eigenen Namen hat.
+
+**Weicher Wechsel** (optional): das Modul setzt für 250 ms die Klasse `is-swapping` am äußeren
+Slider-Div. Dazu eine Custom-CSS-Regel:
+
+```css
+[data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
+.is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
+```
+
+Ohne diese Regel wechselt der Text hart — funktioniert auch. Dauer über `data-pen-swap-ms`
+am Slider-Div, `0` schaltet sie ab.
+
+**Hochzählende Zahl:** `data-pen-count-up` (ohne Wert) am Ziel-Feld. Die Zahl zählt dann in
+450 ms zum neuen Wert hoch, statt zu springen.
 
 Zwei Dinge, die schiefgehen können:
 
-- **Die Attribute für Zoom (`data-pen-fov`, `data-pen-shift-y`) gehören an das äußere
+- **Die Zoom-Attribute (`data-pen-fov`, `data-pen-shift-y`) gehören an das äußere
   `data-edding-pen-slider`-Div**, nicht an das Canvas-Div — dort werden sie nicht gelesen.
 - **Die Pfeil-Buttons nicht *in* das Canvas-Div legen.** Die Zeichenfläche wird darüber gelegt und
   fängt die Klicks ab. Daneben ist richtig.
 
-**Alternative ohne Datenblock:** wenn du kein `data-pen-field` verwendest, fällt das Modul auf den
-einfachen Weg zurück — vier fertig gestylte `data-pen-slide`-Blöcke, von denen der aktive
-eingeblendet wird. Dann pflegst du das Kartenlayout allerdings viermal.
+**Zwei weitere Wege, die Texte zu hinterlegen**, falls dir Attribute für lange Fließtexte
+unangenehm sind — beide funktionieren parallel, gesucht wird in dieser Reihenfolge:
+
+1. `data-pen-1` … `data-pen-4` am Feld selbst (oben beschrieben).
+2. Ein unsichtbarer Datenblock: ein Div mit `data-pen-data`, darin vier Divs mit
+   `data-pen-slide`, in jedem je ein Text-Element mit demselben `data-pen-field`-Namen.
+   Ungestylt, wird automatisch ausgeblendet.
+3. Ganz ohne `data-pen-field`: vier fertig gestylte `data-pen-slide`-Blöcke, von denen der
+   aktive eingeblendet wird. Dann pflegst du das Kartenlayout allerdings viermal.
 
 Zwei Presets:
 
@@ -332,6 +334,7 @@ Ein-/Ausblenden machst du selbst im Designer.
 | `data-pen-prev` / `data-pen-next` | an den Buttons | — |
 | `data-pen-slide` | an jedem der vier Textblöcke bzw. Datensätze | — |
 | `data-pen-field` | an jeder Textstelle, die wechseln soll (Name frei) | — |
+| `data-pen-2` … `-4` | am Feld: Text für Stift 2, 3, 4 | Feld bleibt |
 | `data-pen-data` | am Container mit den vier Datensätzen | — |
 | `data-pen-swap-ms` | Dauer des Textwechsels in ms, 0 = hart | `250` |
 | `data-pen-dot` | optional, direkte Sprungpunkte | — |

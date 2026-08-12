@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v6/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v7/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,13 +27,13 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v6/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v7/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v6`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v7`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
@@ -44,6 +44,8 @@ Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 > als `data-pen-2/3/4` direkt an der Textstelle, und die Karte darf außerhalb des Sliders liegen.
 > v6 macht den Textwechsel weich (Maske, kein CSS mehr nötig) — **wenn du die alte
 > `is-swapping`-Regel in Webflow hast, lösche sie**, siehe Abschnitt 3.
+> v7 lässt die Striche dem Scrollen weich nachlaufen (`data-stroke-smooth`) und behebt das
+> Flackern beim Scrollen; nichts davon musst du im Designer einstellen.
 > Wenn du noch eine ältere Nummer eingebunden hast, tausche sie.
 
 ---
@@ -175,6 +177,23 @@ data-stroke-once data-stroke-duration="1000"
 
 Bei aktivem *Bewegung reduzieren* im Betriebssystem wird der Strich immer sofort fertig gezeigt.
 
+### Weicher Nachlauf (Smoothing) — seit `@v7` an
+
+Der Strich hängt nicht mehr starr am Scrollwert, sondern läuft ihm weich nach — wie ein
+Webflow-/GSAP-Scrub. Das ist standardmäßig an, du brauchst nichts zu setzen.
+
+```html
+data-stroke-smooth="0.12"    <!-- Sekunden. 0 schaltet ab (starr wie vorher). -->
+```
+
+Der Wert ist eine **Zeitkonstante in Sekunden**, keine Dauer: nach etwa dieser Zeit sind rund
+zwei Drittel der Strecke zum Scrollwert aufgeholt, der Rest klingt aus. Größer = träger und
+weicher, kleiner = direkter. Zum Anfassen: `0.05` ist fast direkt, `0.25` deutlich schleppend.
+
+Warum das den Unterschied macht: ein Mausrad rastet grob, und ohne Nachlauf ist jede Rastung ein
+Sprung im Strich. Gerechnet wird zeitbasiert, nicht pro Frame — auf einem 120-Hz-Bildschirm holt
+der Strich also nicht doppelt so schnell auf wie auf einem mit 60 Hz.
+
 ### Alle Attribute der Striche
 
 | Attribut | Wirkung | Standard |
@@ -182,6 +201,7 @@ Bei aktivem *Bewegung reduzieren* im Betriebssystem wird der Strich immer sofort
 | `data-edding-stroke` | Preset (siehe Tabelle) | — |
 | `data-stroke-color` | Farbe überschreiben | je Preset |
 | `data-stroke-scrub` | Scroll-Fenster in Bildschirmhöhen | `1.0 0.45` |
+| `data-stroke-smooth` | Nachlauf in Sekunden, `0` = starr | `0.12` |
 | `data-stroke-once` | einmal durchmalen statt scrubben | aus |
 | `data-stroke-duration` | Dauer dafür in ms | `1000` |
 | `data-pen-width` | Strichbreite; `auto` skaliert mit der Box | `auto` |

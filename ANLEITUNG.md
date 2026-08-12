@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v7/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v8/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,13 +27,13 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v7/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v8/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v7`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v8`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
@@ -44,8 +44,10 @@ Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 > als `data-pen-2/3/4` direkt an der Textstelle, und die Karte darf außerhalb des Sliders liegen.
 > v6 macht den Textwechsel weich (Maske, kein CSS mehr nötig) — **wenn du die alte
 > `is-swapping`-Regel in Webflow hast, lösche sie**, siehe Abschnitt 3.
-> v7 lässt die Striche dem Scrollen weich nachlaufen (`data-stroke-smooth`) und behebt das
-> Flackern beim Scrollen; nichts davon musst du im Designer einstellen.
+> v7 lässt die Striche dem Scrollen weich nachlaufen (`data-stroke-smooth`).
+> v8 behebt das Flackern: die Deckkraft eines Strichs hing daran, wie weit er gemalt war,
+> dadurch wurde er beim Scrollen hell und dunkel. Nichts davon musst du im Designer
+> einstellen.
 > Wenn du noch eine ältere Nummer eingebunden hast, tausche sie.
 
 ---

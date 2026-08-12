@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D-Slider – Struktur ohne Verschieben</title>
+<!--
+  Baut die Struktur aus dem Webflow-Navigator nach: die Textkarte ist ein GESCHWISTER des
+  Slider-Blocks, das Attribut data-edding-pen-slider sitzt am Slider-Block.
+  Zusaetzlich ZWEI Slider auf einer Seite, um zu pruefen, dass die automatische Suche nach
+  oben nicht die Karte des jeweils anderen erwischt.
+-->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 -apple-system, sans-serif; padding: 16px; background: #f3f4f6; }
+  .section { margin-bottom: 28px; }
+  .karte { background: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.12); border-radius: 10px;
+           padding: 12px; margin-bottom: 10px; }
+  .hl { font-weight: 700; margin: 0 0 4px; }
+  .bd { margin: 0; font-size: 13px; color: #444; }
+  .canvas { width: 100%; aspect-ratio: 990/770; position: relative; outline: 1px dashed #cfd8e3;
+            background: #fff; border-radius: 10px; }
+  .btns { display: flex; gap: 8px; margin-top: 8px; }
+  .btns button { width: 38px; height: 38px; border: 1.5px solid #00368e; background: #fff; border-radius: 10px; }
+  .btns button.is-disabled { opacity: .35; }
+
+  [data-pen-field] { transition: opacity .25s ease, transform .25s ease; }
+  .is-swapping [data-pen-field] { opacity: 0; transform: translateX(-12px); }
+</style>
+</head>
+<body data-edding-no-autostart>
+
+<!-- ===================== Sektion 1: hitze ===================== -->
+<div class="section" id="sektionHitze">
+  <div class="padding-bottom">
+
+    <div class="karte">
+      <p class="hl" data-pen-field="headline"
+         data-pen-2="Hitze – Stift 2" data-pen-3="Hitze – Stift 3" data-pen-4="Hitze – Stift 4">Hitze – Stift 1</p>
+      <p class="bd" data-pen-field="body"
+         data-pen-2="Text 2" data-pen-3="Text 3" data-pen-4="Text 4">Text 1</p>
+    </div>
+
+    <div id="sliderHitze" data-edding-pen-slider="hitze" data-pen-debug>
+      <div class="canvas" data-pen-canvas></div>
+      <div class="btns">
+        <button data-pen-prev>‹</button><button data-pen-next>›</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== Sektion 2: wasser ===================== -->
+<div class="section" id="sektionWasser">
+  <div class="padding-bottom">
+
+    <div class="karte">
+      <p class="hl" data-pen-field="headline"
+         data-pen-2="Wasser – Stift 2" data-pen-3="Wasser – Stift 3" data-pen-4="Wasser – Stift 4">Wasser – Stift 1</p>
+    </div>
+
+    <div id="sliderWasser" data-edding-pen-slider="wasser"
+         data-pen-fov="1.3" data-pen-shift-x="0.2" data-pen-shift-y="-0.12" data-pen-debug>
+      <div class="canvas" data-pen-canvas></div>
+      <div class="btns">
+        <button data-pen-prev>‹</button><button data-pen-next>›</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+  import { initEdding } from '../src/edding-webflow.js';
+  window.__api = initEdding({ assetBase: '../assets/' });
+</script>
+
+</body>
+</html>

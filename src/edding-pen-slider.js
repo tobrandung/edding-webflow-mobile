@@ -73,16 +73,63 @@ function createSlider(host, cfg) {
   const presetName = host.getAttribute('data-edding-pen-slider') || 'hitze';
   const preset = SLIDER_PRESETS[presetName] || SLIDER_PRESETS.hitze;
 
-  const canvasBox = host.querySelector('[data-pen-canvas]') || host;
+  // ------------------------------------------------------------------------------------------
+  // SUCHBEREICH.
+  // Standardmaessig sucht das Modul Felder, Buttons und Datensaetze INNERHALB des Elements mit
+  // data-edding-pen-slider. In einer typischen Webflow-Struktur liegt die Textkarte aber als
+  // GESCHWISTER neben dem Slider-Block, nicht darin:
+  //
+  //   padding-bottom
+  //   ├── karte            (data-pen-field-Attribute)
+  //   └── slider-block     (data-edding-pen-slider + data-pen-canvas)
+  //
+  // Dann waere der Suchbereich zu eng und es wuerde kein einziges Feld gefunden. Statt das
+  // Verschieben im Designer zu verlangen, sucht das Modul selbst nach oben: Elternteil um
+  // Elternteil, bis eines gefunden ist, das data-pen-field enthaelt UND nur EINEN Slider - so
+  // kann es nicht versehentlich die Karte eines zweiten Sliders auf derselben Seite erwischen.
+  //
+  // data-pen-target="<CSS-Selektor>" setzt den Bereich ausdruecklich und gewinnt immer.
+  // ------------------------------------------------------------------------------------------
+  function findeSuchbereich() {
+    const ziel = host.getAttribute('data-pen-target');
+    if (ziel) {
+      const el = host.closest(ziel) || document.querySelector(ziel);
+      if (el) return el;
+      console.warn('[edding] data-pen-target findet kein Element:', ziel);
+    }
+    if (host.querySelector('[data-pen-field], [data-pen-slide]')) return host;
+
+    let el = host.parentElement;
+    for (let tiefe = 0; el && el !== document.body && tiefe < 8; tiefe++, el = el.parentElement) {
+      if (!el.querySelector('[data-pen-field], [data-pen-slide]')) continue;
+      if (el.querySelectorAll('[data-edding-pen-slider]').length > 1) {
+        console.warn('[edding] Die Textfelder liegen ausserhalb des Sliders, und der naechste'
+          + ' gemeinsame Elternteil enthaelt mehrere Slider. Bitte data-pen-target setzen.');
+        return host;
+      }
+      return el;
+    }
+    return host;
+  }
+  const scope = findeSuchbereich();
+
+  const canvasBox = host.querySelector('[data-pen-canvas]')
+    || scope.querySelector('[data-pen-canvas]') || host;
   if (getComputedStyle(canvasBox).position === 'static') canvasBox.style.position = 'relative';
   const canvas = document.createElement('canvas');
   canvas.className = 'edding-pen__canvas';
   canvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; display:block;';
   canvasBox.appendChild(canvas);
 
-  const prevBtns = Array.from(host.querySelectorAll('[data-pen-prev]'));
-  const nextBtns = Array.from(host.querySelectorAll('[data-pen-next]'));
-  const dots = Array.from(host.querySelectorAll('[data-pen-dot]'));
+  // Buttons zuerst im Slider selbst, sonst im erweiterten Bereich - so bleiben bestehende
+  // Aufbauten unveraendert, und Buttons neben dem Slider funktionieren trotzdem.
+  const suche = (sel) => {
+    const imHost = Array.from(host.querySelectorAll(sel));
+    return imHost.length ? imHost : Array.from(scope.querySelectorAll(sel));
+  };
+  const prevBtns = suche('[data-pen-prev]');
+  const nextBtns = suche('[data-pen-next]');
+  const dots = suche('[data-pen-dot]');
 
   // ------------------------------------------------------------------------------------------
   // FELD-MODUS: du baust die Karte EINMAL und markierst die Textstellen mit
@@ -104,8 +151,8 @@ function createSlider(host, cfg) {
   // Gibt es KEIN data-pen-field, faellt das Modul auf den alten Weg zurueck: vier fertig
   // gestylte data-pen-slide-Bloecke, von denen der aktive eingeblendet wird.
   // ------------------------------------------------------------------------------------------
-  const alleSlides = Array.from(host.querySelectorAll('[data-pen-slide]'));
-  const zielFelder = Array.from(host.querySelectorAll('[data-pen-field]'))
+  const alleSlides = Array.from(scope.querySelectorAll('[data-pen-slide]'));
+  const zielFelder = Array.from(scope.querySelectorAll('[data-pen-field]'))
     .filter(el => !el.closest('[data-pen-slide]'));
   const feldModus = zielFelder.length > 0;
 
@@ -115,7 +162,7 @@ function createSlider(host, cfg) {
   // Im Feld-Modus sind die data-pen-slide-Bloecke reine Datenquelle und werden ausgeblendet.
   const slides = alleSlides;
   if (feldModus) {
-    const datenHost = host.querySelector('[data-pen-data]');
+    const datenHost = scope.querySelector('[data-pen-data]');
     if (datenHost) datenHost.style.display = 'none';
     else slides.forEach(s => { s.style.display = 'none'; });
   }
@@ -183,10 +230,10 @@ function createSlider(host, cfg) {
         }
         ziel.textContent = text;
       }
-      host.classList.remove('is-swapping');
+      scope.classList.remove('is-swapping');
     };
     if (activeIndex < 0 || SWAP_MS <= 0) { schreiben(); return; }
-    host.classList.add('is-swapping');
+    scope.classList.add('is-swapping');
     clearTimeout(swapTimer);
     swapTimer = setTimeout(schreiben, SWAP_MS);
   }
@@ -271,6 +318,12 @@ function createSlider(host, cfg) {
             pensCount: rig.pensCount,
             fovScale: num(host, 'data-pen-fov', 1),
             shift: [num(host, 'data-pen-shift-x', 0), num(host, 'data-pen-shift-y', 0)],
+            // Steht hier 0 Felder, findet das Modul die Textkarte nicht - dann data-pen-target
+            // auf ein Element setzen, das Karte UND Slider umschliesst.
+            felderGefunden: zielFelder.length,
+            suchbereich: scope === host ? 'der Slider selbst'
+              : (scope.className || scope.tagName) + ' (Elternteil, automatisch gefunden)',
+            modus: feldModus ? 'Feld-Modus' : 'Slide-Modus',
           });
         }
         return rig;

@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v4/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v5/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,22 +27,22 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v4/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v5/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v4`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v5`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
 >
 > **Änderungen:** v2 brachte Zoom, Stauchen und Versatz für die Striche
 > (`data-stroke-scale`, `data-stroke-scale-x/-y`, `data-stroke-offset-x/-y`).
-> v3/v4 bringen den Feld-Modus für den 3D-Slider: die Karte einmal bauen, die vier Textfassungen
-> als `data-pen-2/3/4` direkt an der Textstelle. Wenn du noch eine ältere Nummer eingebunden
-> hast, tausche sie.
+> v3–v5 bringen den Feld-Modus für den 3D-Slider: die Karte einmal bauen, die vier Textfassungen
+> als `data-pen-2/3/4` direkt an der Textstelle, und die Karte darf außerhalb des Sliders liegen.
+> Wenn du noch eine ältere Nummer eingebunden hast, tausche sie.
 
 ---
 
@@ -279,22 +279,22 @@ am Slider-Div, `0` schaltet sie ab.
 
 Drei Dinge, die schiefgehen können:
 
-- **`data-edding-pen-slider` muss ALLES umschließen** — Karte, Canvas und Buttons. Der Code sucht
-  die Felder nur innerhalb dieses Elements. Liegt die Karte daneben statt darin, findet er kein
-  einziges Feld und der Text wechselt nie (nachgemessen: 0 gefundene Felder, Text bleibt bei
-  Stift 1 stehen). In einer typischen Webflow-Struktur ist die Karte ein *Geschwister* des
-  Slider-Blocks — dann gehört das Attribut auf das gemeinsame Elternteil, nicht auf den
-  Slider-Block:
+- **Die Karte muss NICHT im Slider liegen.** Findet das Modul innerhalb von
+  `data-edding-pen-slider` keine Felder, sucht es selbst nach oben — Elternteil um Elternteil,
+  bis eines gefunden ist, das Felder enthält und nur einen Slider. Die typische
+  Webflow-Struktur, bei der die Karte ein *Geschwister* des Slider-Blocks ist, funktioniert
+  also von sich aus:
 
   ```
-  padding-bottom            ← data-edding-pen-slider hier hin
-  ├── karte                    (mit den data-pen-field-Attributen)
-  └── slider-block
-      └── data-pen-canvas
+  padding-bottom
+  ├── karte                 (data-pen-field-Attribute)
+  └── slider-block          (data-edding-pen-slider + data-pen-canvas)
   ```
 
-  Und dann am Slider-Block wieder entfernen — zwei Elemente mit dem Attribut wären zwei
-  Instanzen, die sich um dieselbe Zeichenfläche streiten.
+  Greift die Automatik nicht — etwa weil zwei Slider im selben Elternteil liegen —, setzt du
+  `data-pen-target="<CSS-Selektor>"` am Slider auf ein Element, das Karte und Slider
+  umschließt. In der Konsole zeigt `data-pen-debug` unter `felderGefunden` und `suchbereich`,
+  was das Modul wirklich benutzt.
 - **Die Zoom-Attribute (`data-pen-fov`, `data-pen-shift-y`) gehören an dasselbe Element** wie
   `data-edding-pen-slider`, nicht an das Canvas-Div — dort werden sie nicht gelesen.
 - **Die Pfeil-Buttons nicht *in* das Canvas-Div legen.** Die Zeichenfläche wird darüber gelegt und
@@ -316,6 +316,13 @@ Zwei Presets:
 |---|---|---|
 | `hitze` | oberes Karussell des Prototyps | — |
 | `wasser` | unteres Karussell, andere Kamera, gespiegelte Reihenfolge | `data-pen-fov="1.3" data-pen-shift-x="0.2" data-pen-shift-y="-0.12"` |
+
+**Achtung bei `wasser`:** dort ist die Stift-Reihenfolge gespiegelt (wie im Desktop-Prototyp) —
+beim Laden steht **Stift 4** vorne, und „weiter" zählt abwärts. Die Nummern in `data-pen-1` … `-4`
+bezeichnen weiterhin den Stift selbst (1 = 2000 C, 4 = 750), die Texte bleiben also richtig
+zugeordnet. Nur: die Rückfall-Regel „Stift 1 nimmt den im Designer eingetippten Text" greift hier
+erst am Ende der Reihe. Setz bei `wasser` deshalb alle vier Werte ausdrücklich, `data-pen-1`
+eingeschlossen.
 
 **Warum `wasser` die drei Zusatzwerte braucht:** die Kamera ist für eine 990×770-Fläche
 eingerichtet. Bei 390 px läuft der vorderste Stift auf Position 3 und 4 unten aus dem Bild
@@ -353,6 +360,7 @@ Ein-/Ausblenden machst du selbst im Designer.
 | `data-pen-2` … `-4` | am Feld: Text für Stift 2, 3, 4 | Feld bleibt |
 | `data-pen-data` | am Container mit den vier Datensätzen | — |
 | `data-pen-swap-ms` | Dauer des Textwechsels in ms, 0 = hart | `250` |
+| `data-pen-target` | CSS-Selektor: wo die Felder liegen, falls die Automatik daneben greift | automatisch |
 | `data-pen-dot` | optional, direkte Sprungpunkte | — |
 | `data-pen-count-up` | am Ziel-Feld: Zahl hochzählen statt springen | — |
 | `data-pen-slides-mode` | `inline` \| `class` | `inline` |

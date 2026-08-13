@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v8/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v9/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,13 +27,13 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v8/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v9/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v8`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v9`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
@@ -45,6 +45,8 @@ Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 > v6 macht den Textwechsel weich (Maske, kein CSS mehr nötig) — **wenn du die alte
 > `is-swapping`-Regel in Webflow hast, lösche sie**, siehe Abschnitt 3.
 > v7 lässt die Striche dem Scrollen weich nachlaufen (`data-stroke-smooth`).
+> v9 gibt dem Bild-Karussell `data-brush-sticky-top` - damit rastet der Block frueher ein
+> (siehe Abschnitt 4).
 > v8 behebt das Flackern: die Deckkraft eines Strichs hing daran, wie weit er gemalt war,
 > dadurch wurde er beim Scrollen hell und dunkel. Nichts davon musst du im Designer
 > einstellen.
@@ -445,7 +447,30 @@ Der Pinselstrich malt sich und gibt darunter vier Fotos frei, die **beim Scrolle
 ```
 
 **Die Höhe der äußeren Sektion setzt das Modul selbst** (`100svh` + Scrubstrecke) — du brauchst
-dort keine Höhe einzustellen. `data-brush-sticky` bekommt automatisch `position: sticky; top: 0`.
+dort keine Höhe einzustellen. `data-brush-sticky` bekommt automatisch `position: sticky` und den
+`top`-Abstand; Sticky in Webflow einzustellen ist nicht nötig.
+
+### Früher oder später einrasten
+
+```html
+data-brush-sticky-top="200"
+```
+
+Das ist der Abstand, in dem der Block unter dem oberen Bildschirmrand stehen bleibt — und
+gleichzeitig der Regler für **wann** er einrastet. Ein **größerer** Wert heißt **früher**: der
+Block trifft den Haltepunkt schon weiter unten auf dem Bildschirm. `0` (Standard) rastet erst ein,
+wenn er ganz oben am Rand ankommt.
+
+Steht auf deiner Seite oben eine feste Navigationsleiste, ist das auch der Wert, mit dem der Block
+nicht darunter rutscht — dann die Höhe der Leiste eintragen.
+
+Zwei Dinge macht das Modul dabei automatisch mit, damit nichts abgeschnitten wird:
+
+- **Die Choreografie beginnt am Einrastpunkt**, nicht am Bildschirmrand. Sonst würde der Block
+  erst festkleben und eine Weile nichts passieren.
+- **Die Sektion wird um denselben Betrag höher.** Wer früher einrastet, löst sich auch früher —
+  ohne den Zuschlag fehlte am Ende genau dieses Stück (nachgemessen: bei 200 px Versatz die
+  letzten 200 px der Bildwechsel).
 
 Lässt du die `data-brush-image`-Elemente weg, nimmt das Modul die vier aufbereiteten Fotos vom
 CDN. Willst du eigene: leere Div-Blöcke mit `data-src` und der Bild-URL.
@@ -464,6 +489,7 @@ Bildwechsel 150 px hoch bzw. von unten herein.
 | `data-edding-image-brush` | an der äußeren Sektion | — |
 | `data-brush-sticky` | am Kind, das kleben bleibt | — |
 | `data-brush-canvas` | am Kind für die Zeichenfläche | — |
+| `data-brush-sticky-top` | Abstand zum oberen Rand in px; **größer = früher einrasten** | `0` |
 | `data-brush-image` + `data-src` | je Foto, in Reihenfolge | die vier vom CDN |
 | `data-brush-word` | optional, je Wort | — |
 | `data-hold-px` | Standzeit pro Bild in Scroll-px | `200` |

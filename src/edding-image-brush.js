@@ -122,7 +122,7 @@ function createImageBrush(section, cfg) {
           bilder: N,
           penWidth: Math.round(appliedWidth * 1000) / 1000,
           penWidthPreset: P.widthMultiplier,
-          scrubPx, revealPx, holdPx, xfadePx, TOTAL,
+          scrubPx, revealPx, holdPx, xfadePx, TOTAL, stickyTop,
           sektionshoehe: section.getBoundingClientRect().height,
         });
       }
@@ -130,13 +130,24 @@ function createImageBrush(section, cfg) {
     return carousel;
   }
 
+  // Wie hoch der gepinnte Block unter dem oberen Bildschirmrand stehen bleibt (Nutzer-Vorgabe:
+  // frueher einrasten). position:sticky rastet ein, sobald das Element diesen Abstand zur
+  // Oberkante erreicht - ein GROESSERER Wert heisst also FRUEHER, weil der Block den Punkt
+  // schon weiter unten auf dem Bildschirm trifft. Nuetzlich auch, wenn oben eine feste
+  // Navigationsleiste steht, unter die der Block sonst rutscht.
+  const stickyTop = num(section, 'data-brush-sticky-top', 0);
+
   // Sektionshoehe = ein Viewport (die gepinnte Ansicht) + die Scrubstrecke. svh statt vh:
   // auf Mobile aendert das Ein-/Ausblenden der Adressleiste vh und wuerde die Sektionshoehe
   // und damit den ganzen Scrub mitten im Scrollen verschieben.
+  //
+  // stickyTop wird auf die Hoehe ADDIERT: der Block rastet um diese Strecke frueher ein, also
+  // loest er sich auch um diese Strecke frueher wieder - ohne den Zuschlag waere der Scrub am
+  // Ende abgeschnitten (nachgemessen: bei 200px Versatz fehlten 200px der Bildwechsel).
   section.style.position = 'relative';
-  section.style.height = `calc(100svh + ${scrubPx}px)`;
+  section.style.height = `calc(100svh + ${scrubPx + stickyTop}px)`;
   sticky.style.position = 'sticky';
-  sticky.style.top = '0';
+  sticky.style.top = stickyTop + 'px';
 
   // Fotozustand an Scrub-Position s (in px) - unveraendert aus photoStateAt() im Prototyp.
   function photoStateAt(s) {
@@ -176,7 +187,10 @@ function createImageBrush(section, cfg) {
     // Fortschritt aus der Position der Sektion: solange ihre Oberkante ueber 0 liegt, faehrt
     // sie noch herein (Reveal-Phase); danach laeuft der Scrub linear mit dem Scrollen.
     const top = section.getBoundingClientRect().top;
-    const past = -top; // wie weit die Sektion oben aus dem Bild gewandert ist
+    // Gemessen wird ab dem EINRASTPUNKT, nicht ab dem Bildschirmrand: mit data-brush-sticky-top
+    // klebt der Block schon weiter unten fest, und die Choreografie soll genau dann anfangen -
+    // sonst waere der Block gepinnt und es passiert erstmal nichts.
+    const past = stickyTop - top;
 
     if (past < revealPx) {
       // Phase 1: der Pinselstrich malt sich und gibt Bild 1 frei.

@@ -45,11 +45,10 @@ Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 > v6 macht den Textwechsel weich (Maske, kein CSS mehr nötig) — **wenn du die alte
 > `is-swapping`-Regel in Webflow hast, lösche sie**, siehe Abschnitt 3.
 > v7 lässt die Striche dem Scrollen weich nachlaufen (`data-stroke-smooth`).
-> v9 gibt dem Bild-Karussell `data-brush-sticky-top` - damit rastet der Block frueher ein
-> (siehe Abschnitt 4).
 > v8 behebt das Flackern: die Deckkraft eines Strichs hing daran, wie weit er gemalt war,
-> dadurch wurde er beim Scrollen hell und dunkel. Nichts davon musst du im Designer
-> einstellen.
+> dadurch wurde er beim Scrollen hell und dunkel.
+> v9 gibt dem Bild-Karussell `data-brush-sticky-top` — damit rastet der Block früher ein
+> (siehe Abschnitt 4). Nichts davon musst du im Designer einstellen.
 > Wenn du noch eine ältere Nummer eingebunden hast, tausche sie.
 
 ---

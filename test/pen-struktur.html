@@ -63,8 +63,14 @@
   <div class="padding-bottom">
 
     <div class="karte">
+      <!-- Genau wie beim Nutzer eingetragen: die Nummern folgen dem STIFT, nicht der
+           Klickreihenfolge. Bei "wasser" laeuft der Slider rueckwaerts durch, es muss also
+           data-pen-4 (edding 750) als erstes zu sehen sein. -->
       <p class="hl" data-pen-field="headline"
-         data-pen-2="Wasser – Stift 2" data-pen-3="Wasser – Stift 3" data-pen-4="Wasser – Stift 4">Wasser – Stift 1</p>
+         data-pen-1="edding 2000 C permanent marker"
+         data-pen-2="edding 8300 industry permanent marker"
+         data-pen-3="edding 50 paint marker"
+         data-pen-4="edding 750 paint marker">Im Designer eingetippter Text</p>
     </div>
 
     <div id="sliderWasser" data-edding-pen-slider="wasser"
@@ -79,7 +85,9 @@
 </div>
 
 <script type="module">
-  import { initEdding } from '../src/edding-webflow.js';
+  // Cache-Brecher: ES-Module haben je Datei einen eigenen Cache-Eintrag, ein Reload der SEITE
+  // laedt sie nicht neu. Zum Testen deshalb pro Aufruf eine neue Adresse.
+  const { initEdding } = await import('../src/edding-webflow.js?t=' + Date.now());
   window.__api = initEdding({ assetBase: '../assets/' });
 </script>
 

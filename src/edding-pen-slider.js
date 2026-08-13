@@ -416,12 +416,33 @@ function createSlider(host, cfg) {
   // setRunning(true) wuerde also nie kommen. Deshalb wird der Zustand beim Bauen nachgezogen.
   let inView = false;
 
+  // ------------------------------------------------------------------------------------------
+  // Stift-Nummer ist NICHT gleich Slider-Stellung (Preset "wasser").
+  //
+  // Das Rig meldet immer den Stift, der vorne steht - beim Preset "wasser" laufen die Stifte
+  // aber rueckwaerts durch (reverseCaps, gemessen: Stellung 1..4 meldet 3, 2, 1, 0; Kappe offen
+  // und naechster zur Kamera stimmen damit ueberein). Fuer die TEXTE ist das richtig so, die
+  // gehoeren zum Stift. Fuer alles, was von "erster/letzter" abhaengt, ist es falsch: die
+  // Endpunkte lagen dadurch auf den verkehrten Buttons (Nutzer-Meldung: "disabled state ist
+  // falsch rum").
+  //
+  // stellungVon() rechnet die Stift-Nummer in die Slider-Stellung um. Ohne reverseCaps ist das
+  // die Identitaet, "hitze" bleibt also unberuehrt.
+  const umgekehrt = !!preset.reverseCaps;
+  const stellungVon = (i) => (umgekehrt ? pensCount - 1 - i : i);
+  // Welcher Stift steht auf Slider-Stellung 1 vorne? Ohne reverseCaps der erste, mit reverseCaps
+  // der letzte. NICHT einfach 0 - genau das war der Fehler: showSlide(0) schrieb bei "wasser" den
+  // Text von Stift 1 in die Karte, waehrend das Rig sichtbar Stift 4 nach vorne gedreht hatte.
+  const startStift = () => (umgekehrt ? pensCount - 1 : 0);
+  // ------------------------------------------------------------------------------------------
+
   // Kein Endlos-Loop: die vier Stifte sitzen auf einem 76-Grad-Bogen (STEP_DEG 25.4 x 3), nicht
   // auf einem vollen Kreis. Ein Sprung von Stift 4 zurueck auf 1 wuerde sichtbar zurueckrotieren.
   // Stattdessen werden die Buttons an den Enden als deaktiviert markiert.
   function updateButtons() {
-    const atStart = activeIndex <= 0;
-    const atEnd = activeIndex >= pensCount - 1;
+    const stellung = stellungVon(activeIndex);
+    const atStart = stellung <= 0;
+    const atEnd = stellung >= pensCount - 1;
     prevBtns.forEach((b) => {
       b.classList.toggle('is-disabled', atStart);
       b.setAttribute('aria-disabled', atStart ? 'true' : 'false');
@@ -452,7 +473,7 @@ function createSlider(host, cfg) {
       rig.setRunning(inView && !document.hidden);
       return rig.ready.then(() => {
         pensCount = rig.pensCount;
-        showSlide(0);
+        showSlide(startStift());
         updateButtons();
         if (debug) {
           console.log('[edding pen-slider]', presetName, {
@@ -495,8 +516,12 @@ function createSlider(host, cfg) {
       // Direktsprung: stepByClick tweent 700 ms, ein Mehrfachsprung wuerde sich ueberholen -
       // deshalb nur EIN Schritt in die richtige Richtung. Dots sind ohnehin optional
       // (Nutzer-Vorgabe: nur Pfeile).
-      if (k > activeIndex) rig.stepNext();
-      else if (k < activeIndex) rig.stepPrev();
+      // In Slider-Stellungen vergleichen, nicht in Stift-Nummern - bei "wasser" laufen die
+      // Nummern rueckwaerts, ein Vergleich der Nummern schickte den Slider in die falsche
+      // Richtung gegen den Anschlag (und damit ins Nichts).
+      const ziel = stellungVon(k), jetzt = stellungVon(activeIndex);
+      if (ziel > jetzt) rig.stepNext();
+      else if (ziel < jetzt) rig.stepPrev();
     });
   }));
 
@@ -525,12 +550,21 @@ function createSlider(host, cfg) {
     if (rig) rig.setRunning(inView && !document.hidden);
   });
 
-  showSlide(0);
+  // Startzustand sofort setzen, nicht erst wenn das Rig fertig ist (Nutzer-Meldung: "das springt
+  // um wenn ich hinscrolle"). Das Rig entsteht lazy - bis dahin stand in der Karte der im
+  // Designer eingetippte Text, und in dem Moment, in dem das Rig fertig war, wurde er
+  // ausgetauscht. Sichtbar, weil das genau beim Heranscrollen passiert.
+  showSlide(startStift());
 
   return {
     host,
     get rig() { return rig; },
     get index() { return activeIndex; },
+    // Slider-Stellung (1-basiert, wie der Nutzer klickt) - bei "wasser" nicht gleich der
+    // Stift-Nummer, siehe stellungVon().
+    get position() { return stellungVon(activeIndex) + 1; },
+    get reversed() { return umgekehrt; },
+    get pensCount() { return pensCount; },
     build,
     next: () => build().then(() => rig && rig.stepNext()),
     prev: () => build().then(() => rig && rig.stepPrev()),

@@ -18,7 +18,7 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 
 ```html
 <script type="module">
-  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v9/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v10/';
   const m = await import(BASE + 'src/edding-webflow.js');
   m.initEdding({ assetBase: BASE + 'assets/' });
 </script>
@@ -27,13 +27,13 @@ In **Slater** ein neues Script anlegen, oder in Webflow unter *Page Settings →
 Falls Slater `type="module"` nicht durchlässt, geht auch die klassische Variante:
 
 ```js
-const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v9/';
+const BASE = 'https://cdn.jsdelivr.net/gh/tobrandung/edding-webflow-mobile@v10/';
 import(BASE + 'src/edding-webflow.js').then(m => m.initEdding({ assetBase: BASE + 'assets/' }));
 ```
 
 Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 
-> **Zum `@v9`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
+> **Zum `@v10`:** die Version ist fest verdrahtet, damit sich nichts von selbst ändert. Wenn du
 > eine neue Fassung brauchst, wird ein neuer Tag gesetzt und du tauschst die Nummer.
 > Nimm **nicht** `@main` — das liegt bis zu 12 Stunden im jsDelivr-Cache, Änderungen kommen
 > also verzögert an.
@@ -48,7 +48,9 @@ Das ist alles. Repo: <https://github.com/tobrandung/edding-webflow-mobile>
 > v8 behebt das Flackern: die Deckkraft eines Strichs hing daran, wie weit er gemalt war,
 > dadurch wurde er beim Scrollen hell und dunkel.
 > v9 gibt dem Bild-Karussell `data-brush-sticky-top` — damit rastet der Block früher ein
-> (siehe Abschnitt 4). Nichts davon musst du im Designer einstellen.
+> (siehe Abschnitt 4).
+> v10 behebt den `wasser`-Slider: dort laufen die Stifte rückwärts durch, dadurch lagen
+> Endpunkte und Starttext auf dem falschen Stift — siehe Abschnitt 3.
 > Wenn du noch eine ältere Nummer eingebunden hast, tausche sie.
 
 ---
@@ -363,12 +365,30 @@ Zwei Presets:
 | `hitze` | oberes Karussell des Prototyps | — |
 | `wasser` | unteres Karussell, andere Kamera, gespiegelte Reihenfolge | `data-pen-fov="1.3" data-pen-shift-x="0.2" data-pen-shift-y="-0.12"` |
 
-**Achtung bei `wasser`:** dort ist die Stift-Reihenfolge gespiegelt (wie im Desktop-Prototyp) —
-beim Laden steht **Stift 4** vorne, und „weiter" zählt abwärts. Die Nummern in `data-pen-1` … `-4`
-bezeichnen weiterhin den Stift selbst (1 = 2000 C, 4 = 750), die Texte bleiben also richtig
-zugeordnet. Nur: die Rückfall-Regel „Stift 1 nimmt den im Designer eingetippten Text" greift hier
-erst am Ende der Reihe. Setz bei `wasser` deshalb alle vier Werte ausdrücklich, `data-pen-1`
-eingeschlossen.
+**Achtung bei `wasser`:** dort ist die Stift-Reihenfolge gespiegelt (wie im Desktop-Prototyp).
+Nachgemessen, welcher Stift auf welcher Slider-Stellung vorne steht:
+
+| Slider-Stellung | `wasser` zeigt | Text kommt aus | `hitze` zeigt |
+|---|---|---|---|
+| 1 (beim Laden) | edding **750** | `data-pen-4` | edding 2000 C → `data-pen-1` |
+| 2 | edding **50** | `data-pen-3` | edding 8300 → `data-pen-2` |
+| 3 | edding **8300** | `data-pen-2` | edding 50 → `data-pen-3` |
+| 4 | edding **2000 C** | `data-pen-1` | edding 750 → `data-pen-4` |
+
+Die Nummern bezeichnen also **den Stift**, nicht die Klick-Reihenfolge — dadurch passt der Text
+immer zum Modell, das gerade vorne steht. Zwei Folgen davon:
+
+- **Setz bei `wasser` alle vier Werte ausdrücklich**, `data-pen-1` eingeschlossen. Die
+  Rückfall-Regel „Stift 1 nimmt den im Designer eingetippten Text" greift hier erst auf
+  Stellung 4.
+- **Tipp den Text von edding 750 in den Designer**, wenn du ganz sicher gehen willst — das ist,
+  was auf Stellung 1 zu sehen ist.
+
+**Die Pfeile zeigen bei `wasser` in die andere Richtung.** Das Karussell dreht dort umgekehrt
+(`rotationSign: -1`), die Stifte wandern also gegenläufig zu `hitze`. Wenn sich „weiter" bei dir
+verkehrt anfühlt, **tausche einfach `data-pen-prev` und `data-pen-next` zwischen den zwei
+Buttons** — mehr ist nicht nötig, der deaktivierte Zustand wandert automatisch mit, weil er an den
+echten Endpunkten hängt und nicht an der Stift-Nummer.
 
 **Warum `wasser` die drei Zusatzwerte braucht:** die Kamera ist für eine 990×770-Fläche
 eingerichtet. Bei 390 px läuft der vorderste Stift auf Position 3 und 4 unten aus dem Bild
